@@ -16,12 +16,11 @@ win需要Python 环境
 ### 1. 启动框架
 
 ```bash
-cd automan_framework
-python main.py
+B-BOT.exe一键运行
 ```
 
 ### 2. 访问Web管理界面
-
+.env文件可以更改端口
 打开浏览器访问 `http://127.0.0.1:5000`
 
 ### 3. WebSocket连接
