@@ -1,7 +1,7 @@
 # B-Bot
 
-一个类似AutMan的机器人框架,通过python实现，具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板。
-win需要Python 环境
+一个类似AutMan的机器人框架，通过python实现，具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板。
+win电脑需要有python环境
 ## 功能特性
 
 - **多协议接入器**: 支持WebSocket等协议，可对接QQ等平台
@@ -20,11 +20,11 @@ B-BOT.exe一键运行
 ```
 
 ### 2. 访问Web管理界面
-.env文件可以更改端口
+
 打开浏览器访问 `http://127.0.0.1:5000`
 
 ### 3. WebSocket连接
-
+.env文件可以更改端口
 客户端可以连接到 `ws://127.0.0.1:8080` 发送和接收消息
 ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
 ## Web管理功能
@@ -81,13 +81,13 @@ ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
 ## 插件开发
 
 ### 开发规范
-
+- 中间遵循异步运行，插件调用时需使用await异步操作
 - 所有插件必须遵循插件开发规范
 - 插件文件名应使用下划线命名法
 - 规则名称应具有唯一性
 - 代码应包含适当的错误处理
 #### 基本插件结构
-
+- 一些参数：platform: reverse_ws(ws对接的渠道)、web_ui(web端)
 
 ##### 插件编写方法一
 ```python
@@ -111,7 +111,7 @@ async def handle_message(msg, middleware):
     platform = msg["platform"]
     #这种为推送消息的方式，连续交互时使用，需要填写多种参数
     await middleware.send_message(platform, user_id, "要发送的消息",msg)
-    #这种为直接回复消息，适合结束的地方使用
+    #这种为直接回复消息，适合结束的地方使用，只支持rules里面绑定的函数使用（例如：handle_message）
     return {
         "content": "回复内容",
         "to_user_id": user_id
@@ -700,4 +700,121 @@ def register(m: Middleware):
             return True
         return False
 
+```
+
+# 青龙调用
+
+## 方法一
+
+```python
+#插件填写下方路径,例子：
+from containers.qinglong_client import QinglongClient
+import asyncio
+containers_config = await middleware.bucket_manager.get("system", "containers", {})
+for name, config in containers_config.items():
+    if config.get('enabled'):
+        target_container = config
+        target_container['name'] = name
+        break
+client = QinglongClient(
+        url=target_container['url'],
+        client_id=target_container['client_id'],
+        client_secret=target_container['client_secret']
+    )
+get_envs = await asyncio.get_running_loop().run_in_executor(None, client.get_envs(searchValue))
+
+#这是可以调用的函数，
+def get_envs(self, searchValue: str = None):
+    """获取环境变量"""
+    self._get_token()
+    params = {'searchValue': searchValue} if searchValue else {}
+    try:
+        response = requests.get(f"{self.url}/open/envs", headers=self.headers, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json().get('data', [])
+    except requests.RequestException as e:
+        raise Exception(f"获取环境变量失败: {e}")
+
+def add_envs(self, envs: list):
+    """添加环境变量"""
+    self._get_token()
+    try:
+        response = requests.post(f"{self.url}/open/envs", headers=self.headers, json=envs, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        raise Exception(f"添加环境变量失败: {e}")
+
+def update_env(self, env: dict):
+    """更新环境变量"""
+    self._get_token()
+    try:
+        response = requests.put(f"{self.url}/open/envs", headers=self.headers, json=env, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        raise Exception(f"更新环境变量失败: {e}")
+
+def delete_envs(self, ids: list):
+    """删除环境变量"""
+    self._get_token()
+    try:
+        response = requests.delete(f"{self.url}/open/envs", headers=self.headers, json=ids, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        raise Exception(f"删除环境变量失败: {e}")
+```
+
+
+
+## 方法二
+
+```python
+#插件填写下方路径
+from containers.qinglong import QinglongContainer
+containers_config = await middleware.bucket_manager.get("system", "containers", {})
+for name, config in containers_config.items():
+    if config.get('enabled'):
+        target_container = config
+        target_container['name'] = name
+        break
+client = QinglongContainer(
+        url=target_container['url'],
+        client_id=target_container['client_id'],
+        client_secret=target_container['client_secret']
+    )
+get_envs = await client.get_envs(searchValue)
+
+
+#---
+async def get_envs(self) -> List[Dict[str, Any]]:
+    """
+    获取青龙面板中的所有环境变量。
+    """
+    data = await self._request("GET", "envs")
+    return data if data is not None else []
+
+async def add_env(self, name: str, value: str, remarks: Optional[str] = None) -> bool:
+    """
+    添加一个环境变量。
+    """
+    payload = [{"name": name, "value": value, "remarks": remarks or ''}]
+    result = await self._request("POST", "envs", json=payload)
+    return result is not None
+
+async def update_env(self, env_id: Any, name: str, value: str, remarks: Optional[str] = None) -> bool:
+    """
+    更新一个环境变量。
+    """
+    payload = {"id": env_id, "name": name, "value": value, "remarks": remarks or ''}
+    result = await self._request("PUT", "envs", json=payload)
+    return result is not None
+
+async def delete_env(self, env_ids: List[Any]) -> bool:
+    """
+    删除一个或多个环境变量。
+    """
+    result = await self._request("DELETE", "envs", json=env_ids)
+    return result is not None
 ```
