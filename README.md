@@ -2,6 +2,8 @@
 
 一个类似AutMan的机器人框架，通过python实现，具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板。
 win电脑需要有python环境
+
+ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
 ## 功能特性
 
 - **多协议接入器**: 支持WebSocket等协议，可对接QQ等平台
@@ -773,26 +775,30 @@ def delete_envs(self, ids: list):
 ```python
 #插件填写下方路径
 from containers.qinglong import QinglongContainer
-containers_config = await middleware.bucket_manager.get("system", "containers", {})
+containers_config = await middleware.bucket_get("system", "containers")
+target_container = {}
+qlname = ""
 for name, config in containers_config.items():
     if config.get('enabled'):
-        target_container = config
-        target_container['name'] = name
+        target_container["url"] = config.get("url")
+        target_container["client_id"] = config.get("client_id")
+        target_container["client_secret"] = config.get("client_secret")
+
+        qlname = name
         break
 client = QinglongContainer(
-        url=target_container['url'],
-        client_id=target_container['client_id'],
-        client_secret=target_container['client_secret']
-    )
+    qlname,
+    target_container
+)
 get_envs = await client.get_envs(searchValue)
 
 
 #---
-async def get_envs(self) -> List[Dict[str, Any]]:
+async def get_envs(self,  searchValue: str = "") -> List[Dict[str, Any]]:
     """
     获取青龙面板中的所有环境变量。
     """
-    data = await self._request("GET", "envs")
+    data = await self._request("GET", "envs",params={"searchValue": searchValue})
     return data if data is not None else []
 
 async def add_env(self, name: str, value: str, remarks: Optional[str] = None) -> bool:
