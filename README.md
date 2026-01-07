@@ -4,6 +4,8 @@
 win电脑需要有python环境
 
 ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
+对接QQ教程：<a href="https://bchome.dpdns.org/index.php/archives/157/" target="_blank">llonebot(win/docker)</a>
+
 ## 功能特性
 
 - **多协议接入器**: 支持WebSocket等协议，可对接QQ等平台
