@@ -4,8 +4,24 @@
 win电脑需要有python环境
 
 ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
+
 对接QQ教程：<a href="https://bchome.dpdns.org/index.php/archives/157/" target="_blank">llonebot(win/docker)</a>
 
+docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target="_blank">部署docker</a>
+
+```docker
+ docker run -d `
+  -p 8888:8888 `
+  -p 5000:5000 `
+  -e KAMI="卡密" `
+  -e WEB_UI_PORT="5000" `
+  -e REVERSE_WS_PORT="8888" `
+  -v "你的docker文件夹地址\data:/app/data" `
+  -v "你的docker文件夹地址\plugins:/app/plugins" `
+  --name b-bot-container `
+  --restart unless-stopped `
+  b-bot
+```
 ## 功能特性
 
 - **多协议接入器**: 支持WebSocket等协议，可对接QQ等平台
@@ -31,31 +47,18 @@ B-BOT.exe一键运行
 .env文件可以更改端口
 客户端可以连接到 `ws://127.0.0.1:8080` 发送和接收消息
 ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
-## Web管理功能
 
 ### 适配器管理
-- 适配器状态监控
-- 适配器配置（主机、端口、访问令牌等）
 
 ### 插件管理
-- 扫描插件目录
-- 在线编辑插件代码
-- 创建新插件
-- 插件热加载
-- 启用/禁用插件
-- 重载/卸载插件
 
 ### 规则管理
 - 查看系统规则
 - 添加新规则（支持正则表达式、关键词、完全匹配）
 
 ### 数据桶管理
-- 查看桶列表
-- 查看桶内容
 
 ### 日志管理
-- 实时日志显示
-- 历史日志查看
 
 ## WebSocket协议
 
@@ -163,51 +166,14 @@ def register(middleware):
     print(f"示例插件 '{__description__}' 已加载并注册了消息处理器。")
 
 ```
-
-## API接口
-这里只提供基础接口
-### 插件相关
-- `GET /api/plugins` - 获取插件列表
-- `GET /api/plugins/scan` - 扫描插件
-- `GET /api/plugins/{name}/content` - 获取插件内容
-- `POST /api/plugins/{name}/content` - 保存插件内容
-- `POST /api/plugins/create` - 创建插件
-- `POST /api/plugins/{name}/enable` - 启用插件
-- `POST /api/plugins/{name}/disable` - 禁用插件
-- `POST /api/plugins/{name}/reload` - 重载插件
-- `POST /api/plugins/{name}/unload` - 卸载插件
-- 
-
-### 规则相关
-- `GET /api/rules` - 获取规则列表
-- `POST /api/rules/add` - 添加规则
-
-### 适配器相关
-- `GET /api/adapters` - 获取适配器状态
-- `GET /api/adapters/config` - 获取适配器配置
-- `POST /api/adapters/config` - 保存适配器配置
-
-### 其他
-- `GET /api/buckets` - 获取桶列表
-- `GET /api/buckets/{name}` - 获取桶数据
-- `GET /api/logs` - 获取日志
-- `GET /api/status` - 获取框架状态
-
 ## 配置
 
-框架支持以下环境变量配置：
+win框架支持以下环境变量配置：
 
 - `REVERSE_WS_HOST`: 反向WebSocket服务器主机，默认 `0.0.0.0`
 - `REVERSE_WS_PORT`: 反向WebSocket服务器端口，默认 `8888/ws/qq` (用于发送回复给QQ等平台)
 - `WEB_UI_HOST`: Web界面主机，默认 `0.0.0.0`
 - `WEB_UI_PORT`: Web界面端口，默认 `5000`
-- `PLUGINS_DIR`: 插件目录，默认 `plugins`
-
-
-## 架构说明
-
-- `plugins/`: 插件管理系统
-- `storage/`: 持久化存储系统，内置数据桶
 
 ## 特殊说明
 
