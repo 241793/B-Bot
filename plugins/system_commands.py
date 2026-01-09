@@ -26,12 +26,12 @@ async def system_command_handler(message: dict):
     # 1. 时间指令
     if content.lower() in ["时间", "time"]:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        return {"content": f"当前时间是：{now}"}
+        return {"content": f"{now}"}
 
     # 2. 版本指令
     if content.lower() in ["v", "v", "版本"]:
-        version_num = await middleware_instance.bucket_get("system", "version_number", "未知")
-        version_content = await middleware_instance.bucket_get("system", "version_content", "没有版本说明")
+        version_num = await middleware_instance.bucket_get("version", "version_number", "未知")
+        version_content = await middleware_instance.bucket_get("version", "version_content", "没有版本说明")
         return {"content": f"版本号: {version_num}\n{version_content}"}
     platform = message.get("platform")
     # 新增：赞我指令
@@ -215,3 +215,4 @@ def register(middleware: Middleware):
     middleware_instance = middleware
     middleware.register_message_handler(system_command_handler)
     print("插件 'system_commands' 已加载。")
+
