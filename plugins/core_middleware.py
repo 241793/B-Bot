@@ -552,6 +552,20 @@ class Middleware:
             return
         await self.send_response(original_message, {"content": cq_code})
 
+    async def reply_with_video(self, original_message: Dict[str, Any], video_source: str):
+        """
+        回复原始消息，并携带视频。
+        :param original_message: 原始消息对象，用于获取回复目标。
+        :param video_source: 视频源，通常是视频的URL。
+        :return: 如果成功，返回True，否则返回False。
+        """
+        if re.match(r'^https?://', video_source):
+            cq_code = f"[CQ:video,file={video_source}]"
+        else:
+            self.logger.error(f"无效的视频源: {video_source[:50]}... (目前仅支持URL)")
+            return
+        await self.send_response(original_message, {"content": cq_code})
+
     # 持久化存储相关功能
     async def bucket_get(self, bucket_name: str, key: str, default=None):
         """
