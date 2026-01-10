@@ -12,6 +12,19 @@ ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
 docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target="_blank">部署docker</a>
 
 ```docker
+docker run -d \
+  -p 8888:8888 \
+  -p 5000:5000 \
+  -e KAMI=卡密 \
+  -e WEB_UI_PORT=5000 \
+  -e REVERSE_WS_PORT=8888 \
+  -v 你的docker文件夹地址/data:/app/data \
+  -v 你的docker文件夹地址/plugins:/app/plugins \
+  --name b-bot-container \
+  --restart unless-stopped \
+  b-bot
+
+
  docker run -d `
   -p 8888:8888 `
   -p 5000:5000 `
