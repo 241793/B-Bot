@@ -1,6 +1,6 @@
 {
   "v":"0.0.3",
-  "notice":"<a href='http://b-bot.42web.io/index.php'>插件市场</a>",
+  "notice":"<iframe href='http://b-bot.42web.io/index.php' width='100%' height='800px'>插件市场</iframe>",
   "update":"变量提交、青龙对接",
   "open":1
 }
