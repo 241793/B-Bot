@@ -536,6 +536,48 @@ class Middleware:
                 except Exception as e:
                     self.logger.error(f"向管理员 {admin_id} 发送消息失败: {e}")
 
+    async def push_to_group(self, platform: str, group_id: str, content: str):
+        """
+        推送到指定群，不受撤回功能影响
+        :param platform: 渠道
+        :param group_id: 群号
+        :param content: 内容
+        """
+        adapter = self.adapters.get(platform)
+        if not adapter:
+            self.logger.error(f"未找到平台 {platform} 的适配器")
+            return
+
+        if hasattr(adapter, 'push_group_message'):
+            try:
+                await adapter.push_group_message(group_id, content)
+                self.logger.info(f"已推送到 {platform} -> 群:{group_id}: {content}")
+            except Exception as e:
+                self.logger.error(f"推送消息到群 {group_id} 失败: {e}", exc_info=True)
+        else:
+             self.logger.error(f"平台 {platform} 的适配器不支持 push_group_message")
+
+    async def push_to_user(self, platform: str, user_id: str, content: str):
+        """
+        推送到指定用户，不受撤回功能影响
+        :param platform: 渠道
+        :param user_id: 用户ID
+        :param content: 内容
+        """
+        adapter = self.adapters.get(platform)
+        if not adapter:
+            self.logger.error(f"未找到平台 {platform} 的适配器")
+            return
+
+        if hasattr(adapter, 'push_private_message'):
+            try:
+                await adapter.push_private_message(user_id, content)
+                self.logger.info(f"已推送到 {platform} -> 用户:{user_id}: {content}")
+            except Exception as e:
+                self.logger.error(f"推送消息到用户 {user_id} 失败: {e}", exc_info=True)
+        else:
+             self.logger.error(f"平台 {platform} 的适配器不支持 push_private_message")
+
     async def reply_with_image(self, original_message: Dict[str, Any], image_source: str):
         """
         回复原始消息，并携带图片。
