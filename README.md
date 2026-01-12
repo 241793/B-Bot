@@ -60,7 +60,7 @@ B-BOT.exe一键运行
 
 ### 3. WebSocket连接
 .env文件可以更改端口
-客户端可以连接到 `ws://127.0.0.1:8080` 发送和接收消息
+客户端可以连接到 `ws://127.0.0.1:8888` 发送和接收消息
 ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
 
 ### 适配器管理
@@ -121,6 +121,8 @@ ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
 __description__ = "插件描述"
 __version__ = "1.0.0"
 __author__ = "开发者"
+__imType__="渠道，例如qq"
+__admin__=False#是否仅管理员
 #配参
 __param__ = {"required":True,"key":"桶名.key","bool":False,"placeholder":"","name":"输入框的名字","desc":"介绍"}
 import asyncio
