@@ -1,242 +1,244 @@
-# 插件：系统指令
-# 功能：提供框架内置的基础指令，如时间查询、管理员设置等。
+"""
+插件管理器
+负责插件的加载、卸载、管理和执行
+"""
+import os
+import sys
+import importlib.util
+import asyncio
+from typing import Dict, List, Any, Optional, Callable
+from pathlib import Path
+import logging
+from utils.logger import get_logger
 __system__ = True
 
-
-import datetime
-import asyncio
-import os
-import re
-import sys
-import psutil  # 用于获取系统状态
-from middleware.middleware import Middleware
-from config import config
-
-# 将 middleware 实例存储在模块级别
-middleware_instance: Middleware = None
-
-async def system_command_handler(message: dict):
+class Plugin:
     """
-    处理系统内置指令的消息处理器
+    插件类，封装单个插件的信息和功能
     """
-    content = message.get("content", "").strip()
-    user_id = str(message.get("user_id"))
-    group_id = message.get("group_id")
-
-    # --- 无需管理员权限的指令 ---
-
-    # 1. 时间指令
-    if content.lower() in ["时间", "time"]:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        return {"content": f"{now}"}
-
-    # 2. 版本指令
-    if content.lower() in ["v", "版本"]:
-        version_num = config.version_number
-        version_content = config.version_content
-        return {"content": f"{version_num}\n{version_content}"}
-    platform = message.get("platform")
-    # 新增：赞我指令
-    if content == "赞我":
-
-        adapter = middleware_instance.adapters.get(platform)
-        if adapter and hasattr(adapter, 'qq_zang'):
-            try:
-
-                await adapter.qq_zang(user_id, 10)
-                return {"content": "好感度+10！"}
-            except Exception as e:
-                middleware_instance.logger.error(f"执行'赞我'指令失败: {e}")
-                return {"content": "点赞失败了，稍后再试试吧。"}
-        else:
-            return {"content": "当前平台不支持点赞哦。"}
-
-    # --- 需要管理员权限的指令 ---
     
-    is_admin = await middleware_instance.is_admin(user_id)
-    if content == "banall" and is_admin:
-
-        adapter = middleware_instance.adapters.get(platform)
-        if adapter and hasattr(adapter, 'ban_all'):
-            try:
-                await adapter.ban_all(group_id, True)
-                return {"content": "全体禁言中..."}
-            except Exception as e:
-                middleware_instance.logger.error(f"执行'全体禁言'指令失败: {e}")
-                return {"content": "全体禁言失败了，稍后再试试吧。"}
-        else:
-            return {"content": "当前平台不支持全体禁言哦。"}
-    if content == "cbanall" and is_admin:
-
-        adapter = middleware_instance.adapters.get(platform)
-        if adapter and hasattr(adapter, 'ban_all'):
-            try:
-                await adapter.ban_all(group_id, False)
-                return {"content": "解除全体禁言"}
-            except Exception as e:
-                middleware_instance.logger.error(f"执行'解除全体禁言'指令失败: {e}")
-                return {"content": "解除全体禁言失败了，稍后再试试吧。"}
-        else:
-            return {"content": "当前平台不支持解除全体禁言哦。"}
-    if content.startswith("ban ") and is_admin:
-        ban_qq = content.split(" ")[1]
-        duration = int(content.split(" ")[2])
-        if not ban_qq:
-            return {"content": "请输入要禁言的Q号。"}
-        adapter = middleware_instance.adapters.get(platform)
-        if adapter and hasattr(adapter, 'ban'):
-            try:
-                await adapter.ban(ban_qq,group_id, duration)
-                return {"content": f"{ban_qq}被禁言{duration}秒"}
-            except Exception as e:
-                middleware_instance.logger.error(f"执行'禁言'指令失败: {e}")
-                return {"content": "禁言失败了，稍后再试试吧。"}
-        else:
-            return {"content": "当前平台不支持禁言哦。"}
-    if content.startswith("踢 ") and is_admin:
-        ban_qq = content.split(" ")[1]
-
-
-        add2 = False
-        tt = "允许"
-        if len(content.split(" ")) == 3 and int(content.split(" ")[2]) == "1":
-            add2 = True
-            tt = "禁止"
-        if not ban_qq:
-            return {"content": "请输入要踢的Q号。"}
-        adapter = middleware_instance.adapters.get(platform)
-        if adapter and hasattr(adapter, 'ban'):
-            try:
-                await adapter.kick(ban_qq,group_id, add2)
-                return {"content": f"{ban_qq}被踢出群,{tt}再次加群"}
-            except Exception as e:
-                middleware_instance.logger.error(f"执行'踢人'指令失败: {e}")
-                return {"content": "踢人失败了，稍后再试试吧。"}
-        else:
-            return {"content": "当前平台不支持踢人哦。"}
-    # 3. 重启指令
-    if content == "重启" and is_admin:
-        await middleware_instance.send_response(message, {"content": "机器人正在重启..."})
-        await asyncio.sleep(1) # 留出时间发送消息
+    def __init__(self, name: str, module, file_path: str):
+        """
+        初始化插件
+        :param name: 插件名称
+        :param module: 插件模块
+        :param file_path: 插件文件路径
+        """
+        self.name = name
+        self.module = module
+        self.file_path = file_path
+        self.is_loaded = True
+        self.rules = []  # 插件定义的规则列表
+        self.logger = get_logger(f"plugin.{name}")
         
-        # 使用 os.execv 重启脚本
-        python = sys.executable
-        os.execv(python, [python] + sys.argv)
-        return None # 这行代码实际上不会执行
-    if content == "myuid":
-        return {"content": f"{user_id}"}
-    # 4. 系统状态指令
-    if content.startswith("system") and is_admin:
-        cpu_usage = psutil.cpu_percent(interval=1)
-        memory_info = psutil.virtual_memory()
-        disk_info = psutil.disk_usage('/')
+        # 尝试获取插件信息
+        self.description = getattr(module, "__description__", "无描述")
+        self.version = getattr(module, "__version__", "1.0.0")
+        self.author = getattr(module, "__author__", "未知")
+        self.is_system = getattr(module, "__system__", False)
         
-        status_report = (
-            f"💻 系统状态报告:\n"
-            f"-------------------\n"
-            f"CPU 使用率: {cpu_usage}%\n"
-            f"内存使用率: {memory_info.percent}% ({memory_info.used/1024**3:.2f}G / {memory_info.total/1024**3:.2f}G)\n"
-            f"磁盘使用率: {disk_info.percent}% ({disk_info.used/1024**3:.2f}G / {disk_info.total/1024**3:.2f}G)"
-        )
-        return {"content": status_report}
+        # --- 新增：读取模块级别的权限和平台配置 ---
+        self.is_admin = getattr(module, '__admin__', False)
+        self.im_types = getattr(module, '__imType__', None)
+        # ---------------------------------------
+        
+        # 获取插件中定义的规则
+        if hasattr(module, "rules"):
+            self.rules = module.rules
+        elif hasattr(module, "get_rules"):
+            self.rules = module.get_rules()
 
-    # 5. 管理员设置指令
-    if content.startswith("set admin ") and is_admin:
-        try:
-            admin_ids_str = content[len("set admin "):].strip()
-            new_admins = [admin.strip() for admin in admin_ids_str.split('&') if admin.strip()]
-            if not new_admins:
-                return {"content": "未提供有效的管理员ID。"}
-            await middleware_instance.bucket_set("system", "admin_list", new_admins)
-            return {"content": f"管理员已重置为：{', '.join(new_admins)}"}
-        except Exception as e:
-            return {"content": f"处理指令时出错: {e}"}
 
-    if content.startswith("add admin ") and is_admin:
-        try:
-            new_admin_id = content[len("add admin "):].strip()
-            if not new_admin_id:
-                 return {"content": "指令格式错误。用法: add admin <user_id>"}
-            success = await middleware_instance.add_admin(new_admin_id, user_id)
-            if success:
-                return {"content": f"管理员 {new_admin_id} 添加成功！"}
-            else:
-                return {"content": f"添加失败，用户 {new_admin_id} 可能已经是管理员了。"}
-        except Exception as e:
-            return {"content": f"处理指令时出错: {e}"}
-
-    # 6. 群聊控制指令
-    if content.startswith("关闭群聊回复") and is_admin:
-        await middleware_instance.bucket_set("system", "group_reply_enabled", False)
-        return {"content": "所有群聊的自动回复功能已关闭。"}
+class PluginManager:
+    """
+    插件管理器，负责插件的加载、卸载、管理和执行
+    """
     
-    if content.startswith("开启群聊回复") and is_admin:
-        await middleware_instance.bucket_set("system", "group_reply_enabled", True)
-        return {"content": "所有群聊的自动回复功能已开启。"}
-
-    if content.startswith("拉黑群 ") and is_admin:
-        group_to_block = content[len("拉黑群 "):].strip()
-        if not group_to_block:
-            return {"content": "请输入要拉黑的群号。"}
-        blacklist = await middleware_instance.bucket_get("system", "group_blacklist", [])
-        if group_to_block not in blacklist:
-            blacklist.append(group_to_block)
-            await middleware_instance.bucket_set("system", "group_blacklist", blacklist)
-            return {"content": f"群 {group_to_block} 已被拉黑。"}
-        else:
-            return {"content": f"群 {group_to_block} 已在黑名单中。"}
-
-    if content.startswith("解黑群 ") and is_admin:
-        group_to_unblock = content[len("解黑群 "):].strip()
-        if not group_to_unblock:
-            return {"content": "请输入要解黑的群号。"}
-        blacklist = await middleware_instance.bucket_get("system", "group_blacklist", [])
-        if group_to_unblock in blacklist:
-            blacklist.remove(group_to_unblock)
-            await middleware_instance.bucket_set("system", "group_blacklist", blacklist)
-            return {"content": f"群 {group_to_unblock} 已从黑名单移除。"}
-        else:
-            return {"content": f"群 {group_to_unblock} 不在黑名单中。"}
-
-    # 7. 私聊控制指令
-    if content == "关闭私聊" and is_admin:
-        await middleware_instance.bucket_set("system", "private_reply_enabled", False)
-        return {"content": "面向普通用户的私聊回复功能已关闭。"}
+    def __init__(self, middleware, plugins_dir: str = "plugins"):
+        """
+        初始化插件管理器
+        :param middleware: 中间件实例
+        :param plugins_dir: 插件目录
+        """
+        self.middleware = middleware
+        self.plugins_dir = plugins_dir
+        self.plugins: Dict[str, Plugin] = {}
+        self.logger = get_logger("plugin_manager")
         
-    if content == "开启私聊" and is_admin:
-        await middleware_instance.bucket_set("system", "private_reply_enabled", True)
-        return {"content": "面向普通用户的私聊回复功能已开启。"}
-    if content == "识图":
-        await middleware_instance.send_message(message.get("platform"),user_id, {"content": "请发送图片或者链接。"},message)
-        inp = await middleware_instance.wait_for_input(message,timeout=12000)
-        if inp:
-            if "CQ:image" in inp:
-                imgurl = re.search(r'url=(.*?)&', inp).group(1)
-            elif "http" in inp:
-                imgurl = inp
-            else:
-                return {"content": "请正确发送图片。"}
-            adapter = middleware_instance.adapters.get(platform)
-            if adapter and hasattr(adapter, 'ocr_img'):
-                try:
-                    result = await adapter.ocr_img(imgurl)
-                    if result["status"] == "ok":
-                        tts = ""
-                        for i in result['data']['texts']:
-                            tts += i['text']+"\n"
-                        return {"content": f"识别：{tts}"}
-                except Exception as e:
-                    middleware_instance.logger.error(f"执行'识图'指令失败: {e}")
-                    return {"content": "识别失败了，稍后再试试吧。"}
-            else:
-                return {"content": "当前平台不支持踢人哦。"}
-    return None
+    def load_plugin(self, plugin_name: str) -> bool:
+        """
+        加载单个插件
+        :param plugin_name: 插件名称（不包含.py扩展名）
+        :return: 是否加载成功
+        """
+        try:
+            plugin_file = os.path.join(self.plugins_dir, f"{plugin_name}.py")
+            
+            if not os.path.exists(plugin_file):
+                self.logger.error(f"插件文件不存在: {plugin_file}")
+                return False
+            
+            # 动态导入插件模块
+            spec = importlib.util.spec_from_file_location(plugin_name, plugin_file)
+            module = importlib.util.module_from_spec(spec)
+            
+            # 将middleware注入到模块的全局变量中
+            module.middleware = self.middleware
+            
+            spec.loader.exec_module(module)
+            
+            # 创建插件实例
+            plugin = Plugin(plugin_name, module, plugin_file)
+            self.plugins[plugin_name] = plugin
+            
+            self.logger.info(f"插件 {plugin_name} 加载成功 - {plugin.description} (v{plugin.version} by {plugin.author})")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"加载插件 {plugin_name} 失败: {e}")
+            return False
+    
+    def unload_plugin(self, plugin_name: str) -> bool:
+        """
+        卸载单个插件
+        :param plugin_name: 插件名称
+        :return: 是否卸载成功
+        """
+        if plugin_name not in self.plugins:
+            self.logger.warning(f"插件 {plugin_name} 未加载")
+            return False
 
-def register(middleware: Middleware):
-    """
-    注册插件和消息处理器
-    """
-    global middleware_instance
-    middleware_instance = middleware
-    middleware.register_message_handler(system_command_handler)
-    print("插件 'system_commands' 已加载。")
+        if self.plugins[plugin_name].is_system:
+            self.logger.warning(f"插件 {plugin_name} 是系统插件，不能卸载")
+            return False
+        
+        try:
+            plugin = self.plugins[plugin_name]
+            
+            # 如果插件有卸载函数，调用它
+            if hasattr(plugin.module, "unload"):
+                plugin.module.unload()
+            
+            # 从系统模块中删除插件
+            module_name = plugin.module.__name__
+            if module_name in sys.modules:
+                del sys.modules[module_name]
+            
+            # 从插件管理器中删除插件
+            del self.plugins[plugin_name]
+            
+            self.logger.info(f"插件 {plugin_name} 希载成功")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"卸载插件 {plugin_name} 失败: {e}")
+            return False
+    
+    def load_all_plugins(self) -> int:
+        """
+        加载所有插件
+        :return: 成功加载的插件数量
+        """
+        if not os.path.exists(self.plugins_dir):
+            self.logger.warning(f"插件目录不存在: {self.plugins_dir}")
+            return 0
+        
+        loaded_count = 0
+        for file in os.listdir(self.plugins_dir):
+            if file.endswith(".py") and not file.startswith("__"):
+                plugin_name = file[:-3]  # 移除.py扩展名
+                if self.load_plugin(plugin_name):
+                    loaded_count += 1
+        
+        self.logger.info(f"插件加载完成，共加载 {loaded_count} 个插件")
+        return loaded_count
+    
+    def reload_plugin(self, plugin_name: str) -> bool:
+        """
+        重新加载插件
+        :param plugin_name: 插件名称
+        :return: 是否重新加载成功
+        """
+        if plugin_name in self.plugins and self.plugins[plugin_name].is_system:
+            self.logger.warning(f"插件 {plugin_name} 是系统插件，不能重新加载")
+            return False
+
+        # Invalidate file system caches to ensure the latest code is loaded
+        importlib.invalidate_caches()
+
+        if plugin_name in self.plugins:
+            self.unload_plugin(plugin_name)
+        
+        return self.load_plugin(plugin_name)
+    
+    def get_plugin(self, plugin_name: str) -> Optional[Plugin]:
+        """
+        获取插件实例
+        :param plugin_name: 插件名称
+        :return: 插件实例或None
+        """
+        return self.plugins.get(plugin_name)
+    
+    def get_all_plugins(self) -> Dict[str, Plugin]:
+        """
+        获取所有插件
+        :return: 插件字典
+        """
+        return self.plugins.copy()
+    
+    def get_plugin_rules(self) -> List[Dict[str, Any]]:
+        """
+        获取所有插件的规则
+        :return: 规则列表
+        """
+        all_rules = []
+        for plugin in self.plugins.values():
+            all_rules.extend(plugin.rules)
+        return all_rules
+    
+    def scan_plugins(self) -> List[str]:
+        """
+        扫描插件目录中的所有插件文件
+        :return: 插件文件名列表（不含.py扩展名）
+        """
+        if not os.path.exists(self.plugins_dir):
+            self.logger.warning(f"插件目录不存在: {self.plugins_dir}")
+            return []
+        
+        plugin_files = []
+        for file in os.listdir(self.plugins_dir):
+            if file.endswith(".py") and not file.startswith("__"):
+                plugin_name = file[:-3]  # 移除.py扩展名
+                plugin_files.append(plugin_name)
+        
+        return plugin_files
+    
+    async def execute_plugin_function(self, plugin_name: str, function_name: str, *args, **kwargs):
+        """
+        执行插件中的特定函数
+        :param plugin_name: 插件名称
+        :param function_name: 函数名称
+        :param args: 位置参数
+        :param kwargs: 关键字参数
+        :return: 函数执行结果
+        """
+        plugin = self.get_plugin(plugin_name)
+        if not plugin:
+            self.logger.error(f"插件 {plugin_name} 未加载")
+            return None
+        
+        if not hasattr(plugin.module, function_name):
+            self.logger.error(f"插件 {plugin_name} 中不存在函数 {function_name}")
+            return None
+        
+        func = getattr(plugin.module, function_name)
+        
+        try:
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            self.logger.error(f"执行插件 {plugin_name} 的函数 {function_name} 失败: {e}")
+            return None
