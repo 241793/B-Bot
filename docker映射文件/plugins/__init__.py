@@ -36,6 +36,12 @@ class Plugin:
         self.description = getattr(module, '__description__', '无描述') if module else '核心中间件'
         self.version = getattr(module, '__version__', '1.0.0') if module else '核心'
         self.author = getattr(module, '__author__', '匿名作者') if module else '系统'
+        
+        # --- 新增：读取模块级别的权限和平台配置 ---
+        self.is_admin = getattr(module, '__admin__', False) if module else False
+        self.im_types = getattr(module, '__imType__', None) if module else None
+        # ---------------------------------------
+        
         self.is_system = is_system
         self.rules = rules
         self.is_loaded = is_loaded
@@ -99,6 +105,16 @@ class PluginManager:
             else:
                 spec.loader.exec_module(module)
                 sys.modules[name] = module
+
+            # --- 读取插件元数据 ---
+            is_admin = getattr(module, '__admin__', False)
+            im_types = getattr(module, '__imType__', None)
+            if isinstance(im_types, str):
+                im_types = [t.strip() for t in im_types.split(',')]
+            
+            # 将元数据传递给 middleware
+            self.middleware.set_plugin_metadata(name, is_admin=is_admin, im_types=im_types)
+            # -------------------
 
             if hasattr(module, 'register') and callable(getattr(module, 'register')):
                 register_func = getattr(module, 'register')
@@ -333,7 +349,40 @@ class PluginManager:
         if not plugin or not plugin.is_loaded: return
         for rule_dict in plugin.rules:
             rule_name = f"{plugin_name}.{rule_dict['name']}"
-            rule = Rule(name=rule_name, pattern=rule_dict["pattern"], handler=rule_dict["handler"], rule_type=rule_dict.get("rule_type", "regex"), priority=rule_dict.get("priority", 0), description=rule_dict.get("description", ""), source='plugin')
+            
+            extra_kwargs = {}
+            
+            # --- 优先级逻辑：规则级配置 > 插件级配置 ---
+            
+            # 1. 管理员权限
+            if "__admin__" in rule_dict:
+                extra_kwargs["is_admin"] = rule_dict["__admin__"]
+            elif plugin.is_admin:
+                extra_kwargs["is_admin"] = True
+            
+            # 2. IM 平台白名单
+            im_types_val = None
+            if "__imType__" in rule_dict:
+                im_types_val = rule_dict["__imType__"]
+            elif plugin.im_types:
+                im_types_val = plugin.im_types
+            
+            if im_types_val:
+                if isinstance(im_types_val, str):
+                    extra_kwargs["im_types"] = [t.strip() for t in im_types_val.split(',')]
+                else:
+                    extra_kwargs["im_types"] = im_types_val
+            
+            rule = Rule(
+                name=rule_name, 
+                pattern=rule_dict["pattern"], 
+                handler=rule_dict["handler"], 
+                rule_type=rule_dict.get("rule_type", "regex"), 
+                priority=rule_dict.get("priority", 0), 
+                description=rule_dict.get("description", ""), 
+                source='plugin',
+                **extra_kwargs # 传递额外参数
+            )
             await self.rule_engine.add_rule(rule)
         self.logger.debug(f"为插件 {plugin_name} 注册了 {len(plugin.rules)} 条规则。")
 
