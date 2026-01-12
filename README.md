@@ -17,7 +17,7 @@ docker run -d \
   -p 5000:5000 \
   -e KAMI=卡密 \
   -e WEB_UI_PORT=5000 \
-  -e REVERSE_WS_PORT=8888 \
+  -e qq_PORT=8888 \
   -v 你的docker文件夹地址/data:/app/data \
   -v 你的docker文件夹地址/plugins:/app/plugins \
   --name b-bot-container \
@@ -30,7 +30,7 @@ docker run -d \
   -p 5000:5000 `
   -e KAMI="卡密" `
   -e WEB_UI_PORT="5000" `
-  -e REVERSE_WS_PORT="8888" `
+  -e qq_PORT="8888" `
   -v "你的docker文件夹地址\data:/app/data" `
   -v "你的docker文件夹地址\plugins:/app/plugins" `
   --name b-bot-container `
