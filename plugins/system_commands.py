@@ -6,9 +6,11 @@ __system__ = True
 import datetime
 import asyncio
 import os
+import re
 import sys
 import psutil  # 用于获取系统状态
 from middleware.middleware import Middleware
+from config import config
 
 # 将 middleware 实例存储在模块级别
 middleware_instance: Middleware = None
@@ -29,10 +31,10 @@ async def system_command_handler(message: dict):
         return {"content": f"{now}"}
 
     # 2. 版本指令
-    if content.lower() in ["v", "v", "版本"]:
-        version_num = await middleware_instance.bucket_get("version", "version_number", "未知")
-        version_content = await middleware_instance.bucket_get("version", "version_content", "没有版本说明")
-        return {"content": f"版本号: {version_num}\n{version_content}"}
+    if content.lower() in ["v", "版本"]:
+        version_num = config.version_number
+        version_content = config.version_content
+        return {"content": f"{version_num}\n{version_content}"}
     platform = message.get("platform")
     # 新增：赞我指令
     if content == "赞我":
@@ -124,7 +126,7 @@ async def system_command_handler(message: dict):
     if content == "myuid":
         return {"content": f"{user_id}"}
     # 4. 系统状态指令
-    if content.startswith("botsystem") and is_admin:
+    if content.startswith("system") and is_admin:
         cpu_usage = psutil.cpu_percent(interval=1)
         memory_info = psutil.virtual_memory()
         disk_info = psutil.disk_usage('/')
@@ -204,7 +206,30 @@ async def system_command_handler(message: dict):
     if content == "开启私聊" and is_admin:
         await middleware_instance.bucket_set("system", "private_reply_enabled", True)
         return {"content": "面向普通用户的私聊回复功能已开启。"}
-
+    if content == "识图":
+        await middleware_instance.send_message(message.get("platform"),user_id, {"content": "请发送图片或者链接。"},message)
+        inp = await middleware_instance.wait_for_input(message,timeout=12000)
+        if inp:
+            if "CQ:image" in inp:
+                imgurl = re.search(r'url=(.*?)&', inp).group(1)
+            elif "http" in inp:
+                imgurl = inp
+            else:
+                return {"content": "请正确发送图片。"}
+            adapter = middleware_instance.adapters.get(platform)
+            if adapter and hasattr(adapter, 'ocr_img'):
+                try:
+                    result = await adapter.ocr_img(imgurl)
+                    if result["status"] == "ok":
+                        tts = ""
+                        for i in result['data']['texts']:
+                            tts += i['text']+"\n"
+                        return {"content": f"识别：{tts}"}
+                except Exception as e:
+                    middleware_instance.logger.error(f"执行'识图'指令失败: {e}")
+                    return {"content": "识别失败了，稍后再试试吧。"}
+            else:
+                return {"content": "当前平台不支持踢人哦。"}
     return None
 
 def register(middleware: Middleware):
@@ -215,4 +240,3 @@ def register(middleware: Middleware):
     middleware_instance = middleware
     middleware.register_message_handler(system_command_handler)
     print("插件 'system_commands' 已加载。")
-
