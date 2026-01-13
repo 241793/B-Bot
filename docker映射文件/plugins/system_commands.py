@@ -54,6 +54,25 @@ async def system_command_handler(message: dict):
     # --- 需要管理员权限的指令 ---
     
     is_admin = await middleware_instance.is_admin(user_id)
+    
+    # 授权码查询指令
+    if content == "授权码" and is_admin:
+        if hasattr(middleware_instance, 'license_manager'):
+            license_mgr = middleware_instance.license_manager
+            # 强制刷新一次验证状态
+            await license_mgr.validate()
+            
+            status = license_mgr.get_status()
+            if not status['valid']:
+                if "过期" in status['message']:
+                    return {"content": "授权码已到期"}
+                return {"content": f"授权码无效: {status['message']}"}
+            
+            expires_at = status.get('expires_at', '未知')
+            return {"content": f"到期时间: {expires_at}"}
+        else:
+            return {"content": "无法获取授权管理器实例。"}
+
     if content == "banall" and is_admin:
 
         adapter = middleware_instance.adapters.get(platform)
