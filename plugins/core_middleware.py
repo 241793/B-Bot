@@ -35,41 +35,12 @@ class Middleware:
         # 使用 (user_id, group_id) 元组作为键，确保等待的上下文精确
         self.waiting_for_input: Dict[Tuple[str, Optional[str]], asyncio.Future] = {}
         
-        # 适配器状态缓存
-        self.adapter_status_cache = {}
-        self.adapter_status_loaded = False
-        
-        # 授权检查器
-        self.auth_checker = None
-
         # 捕获主事件循环，用于在非异步线程中调度任务
         try:
             self.main_loop = asyncio.get_running_loop()
         except RuntimeError:
             self.main_loop = None
             self.logger.warning("Middleware initialized without a running event loop. Some features may not work.")
-
-    def set_auth_checker(self, checker: Callable[[], bool]):
-        """设置授权检查器"""
-        self.auth_checker = checker
-
-    async def _ensure_adapter_status_loaded(self):
-        """确保适配器状态已加载"""
-        if not self.adapter_status_loaded:
-            self.adapter_status_cache = await self.bucket_manager.get("system", "adapter_status", {})
-            self.adapter_status_loaded = True
-
-    async def is_adapter_enabled(self, adapter_name: str) -> bool:
-        """检查适配器是否启用"""
-        await self._ensure_adapter_status_loaded()
-        return self.adapter_status_cache.get(adapter_name, True)
-
-    async def set_adapter_enabled(self, adapter_name: str, enabled: bool):
-        """设置适配器启用状态"""
-        await self._ensure_adapter_status_loaded()
-        self.adapter_status_cache[adapter_name] = enabled
-        await self.bucket_manager.set("system", "adapter_status", self.adapter_status_cache)
-        self.logger.info(f"适配器 {adapter_name} 已{'启用' if enabled else '禁用'}")
 
     async def load_containers(self):
         """
@@ -180,14 +151,6 @@ class Middleware:
         """
         在后台任务中运行消息处理器和拦截逻辑。
         """
-        # --- 授权检查 ---
-        if self.auth_checker and not self.auth_checker():
-            self.logger.warning("系统未授权或授权已过期，拒绝处理消息。")
-            # 可以选择发送一条提示消息，或者直接忽略
-            # await self.send_response(message, {"content": "系统未授权或授权已过期。"})
-            return
-        # ----------------
-
         # 首先处理变量提交
         await process_variables(message, self)
 
@@ -248,12 +211,6 @@ class Middleware:
         此函数要么处理一个等待中的回复，要么为新消息创建一个后台处理任务。
         它会立即返回，以防阻塞框架的主循环。
         """
-        # 检查适配器是否启用
-        platform = message.get("platform")
-        if platform and not await self.is_adapter_enabled(platform):
-            self.logger.debug(f"适配器 {platform} 已禁用，忽略消息")
-            return
-
         # 在处理开始时添加可靠的回复目标和群组状态
         if message.get('group_id'):
             message['reply_to'] = message['group_id']
@@ -279,10 +236,6 @@ class Middleware:
         【核心发送逻辑】发送消息并统一处理自动撤回。
         :return: 返回消息回执 (receipt) 或 None
         """
-        if not await self.is_adapter_enabled(platform):
-            self.logger.warning(f"适配器 {platform} 已禁用，无法发送消息")
-            return None
-
         adapter = self.adapters.get(platform)
         if not adapter:
             self.logger.error(f"未找到平台 {platform} 的适配器")
@@ -550,11 +503,11 @@ class Middleware:
         if not adapter: return None
         return {"group_id": group_id, "group_name": f"群组{group_id}", "platform": platform}
 
-    async def notify_admin(self, message: str, platforms: str = "qq"):
+    async def notify_admin(self, message: str, platforms: str = "reverse_ws"):
         """
         向所有管理员发送私聊消息。此消息【不会】被自动撤回。
         :param message:
-        :param platforms: 默认qq,多个用,
+        :param platforms: 默认reverse_ws,多个用,
         :return:
         """
         admin_list = await self.bucket_get("system", "admin_list", [])
@@ -562,9 +515,6 @@ class Middleware:
             self.logger.warning("通知管理员失败：未设置任何管理员。")
             return
         for platform in platforms.split(","):
-            if not await self.is_adapter_enabled(platform):
-                continue
-
             adapter = self.adapters.get(platform)
             if not adapter or not hasattr(adapter, 'send_message'):
                 self.logger.error(f"通知管理员失败：未找到平台 {platform} 的适配器或适配器不支持 send_message。")
@@ -585,56 +535,6 @@ class Middleware:
                     self.logger.info(f"已向管理员 {admin_id} 发送通知。")
                 except Exception as e:
                     self.logger.error(f"向管理员 {admin_id} 发送消息失败: {e}")
-
-    async def push_to_group(self, platform: str, group_id: str, content: str):
-        """
-        推送到指定群，不受撤回功能影响
-        :param platform: 渠道
-        :param group_id: 群号
-        :param content: 内容
-        """
-        if not await self.is_adapter_enabled(platform):
-            self.logger.warning(f"适配器 {platform} 已禁用，无法推送群消息")
-            return
-
-        adapter = self.adapters.get(platform)
-        if not adapter:
-            self.logger.error(f"未找到平台 {platform} 的适配器")
-            return
-
-        if hasattr(adapter, 'push_group_message'):
-            try:
-                await adapter.push_group_message(group_id, content)
-                self.logger.info(f"已推送到 {platform} -> 群:{group_id}: {content}")
-            except Exception as e:
-                self.logger.error(f"推送消息到群 {group_id} 失败: {e}", exc_info=True)
-        else:
-             self.logger.error(f"平台 {platform} 的适配器不支持 push_group_message")
-
-    async def push_to_user(self, platform: str, user_id: str, content: str):
-        """
-        推送到指定用户，不受撤回功能影响
-        :param platform: 渠道
-        :param user_id: 用户ID
-        :param content: 内容
-        """
-        if not await self.is_adapter_enabled(platform):
-            self.logger.warning(f"适配器 {platform} 已禁用，无法推送私聊消息")
-            return
-
-        adapter = self.adapters.get(platform)
-        if not adapter:
-            self.logger.error(f"未找到平台 {platform} 的适配器")
-            return
-
-        if hasattr(adapter, 'push_private_message'):
-            try:
-                await adapter.push_private_message(user_id, content)
-                self.logger.info(f"已推送到 {platform} -> 用户:{user_id}: {content}")
-            except Exception as e:
-                self.logger.error(f"推送消息到用户 {user_id} 失败: {e}", exc_info=True)
-        else:
-             self.logger.error(f"平台 {platform} 的适配器不支持 push_private_message")
 
     async def reply_with_image(self, original_message: Dict[str, Any], image_source: str):
         """
@@ -665,19 +565,7 @@ class Middleware:
             self.logger.error(f"无效的视频源: {video_source[:50]}... (目前仅支持URL)")
             return
         await self.send_response(original_message, {"content": cq_code})
-    async def reply_with_voice(self, original_message: Dict[str, Any], voice_source: str):
-        """
-        回复原始消息，并携带视频。
-        :param original_message: 原始消息对象，用于获取回复目标。
-        :param voice_source: 音频源，通常是音频的URL。
-        :return: 如果成功，返回True，否则返回False。
-        """
-        if re.match(r'^https?://', voice_source):
-            cq_code = f"[CQ:video,file={voice_source}]"
-        else:
-            self.logger.error(f"无效的音频源: {voice_source[:50]}... (目前仅支持URL)")
-            return
-        await self.send_response(original_message, {"content": cq_code})
+
     # 持久化存储相关功能
     async def bucket_get(self, bucket_name: str, key: str, default=None):
         """
