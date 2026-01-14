@@ -15,7 +15,6 @@ docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target
 docker run -d \
   -p 8888:8888 \
   -p 5000:5000 \
-  -e KAMI=卡密 \
   -e WEB_UI_PORT=5000 \
   -e qq_PORT=8888 \
   -v 你的docker文件夹地址/data:/app/data \
@@ -28,7 +27,6 @@ docker run -d \
  docker run -d `
   -p 8888:8888 `
   -p 5000:5000 `
-  -e KAMI="卡密" `
   -e WEB_UI_PORT="5000" `
   -e qq_PORT="8888" `
   -v "你的docker文件夹地址\data:/app/data" `
