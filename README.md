@@ -1,39 +1,39 @@
-# B-Bot
+#B-Bot
 
-本项目仅提供学习和参考，请勿违法操作，请于24小时内删除!
+本项目仅提供学习和参考,请勿违法操作,请于24小时内删除！
 
-一个类似AutMan的机器人框架，通过python实现，具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具。
-win电脑需要有python环境
+一个类似奥特曼的机器人框架,通过大蟒实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具。
+胜利电脑需要有大蟒环境
 
-ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
+ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
 
-对接QQ教程：<a href="https://bchome.dpdns.org/index.php/archives/157/" target="_blank">llonebot(win/docker)</a>
+对接即时通信软件教程：<a href=" https://BC home . DP DNS . org/index . PHP/archives/157/" 目标=" _blank ">llonebot(win/docker)</a>
 
-docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target="_blank">部署docker</a>
+码头工人教程：<a href=" https://BC home . DP DNS . org/index . PHP/archives/168/" 目标=" _blank ">部署码头工人</a>
 
-```docker
-docker run -d \
-  -p 8888:8888 \
-  -p 5000:5000 \
-  -e WEB_UI_PORT=5000 \
-  -e qq_PORT=8888 \
-  -v 你的docker文件夹地址/data:/app/data \
-  -v 你的docker文件夹地址/plugins:/app/plugins \
-  --name b-bot-container \
-  --restart unless-stopped \
-  b-bot
+```码头工人
+docker运行-d \
+-p 8888:8888 \
+-p 5000:5000 \
+-e WEB_UI_PORT=5000 \
+-e qq_PORT=8888 \
+-v你的码头工人文件夹地址/data:/app/data \
+-v你的码头工人文件夹地址/插件:/app/插件\
+-名称b-bot-container \
+-重新启动，除非-停止\
+b-bot
 
 
- docker run -d `
-  -p 8888:8888 `
-  -p 5000:5000 `
-  -e WEB_UI_PORT="5000" `
-  -e qq_PORT="8888" `
+码头流水作业
+-第8888页:8888页
+-5000便士:5000英镑
+-e WEB_UI_PORT="5000 " `
+-e qq_PORT="8888 " `
   -v "你的docker文件夹地址\data:/app/data" `
   -v "你的docker文件夹地址\plugins:/app/plugins" `
   --name b-bot-container `
   --restart unless-stopped `
-  b-bot
+b-bot
 ```
 ## 功能特性
 
@@ -59,7 +59,7 @@ B-BOT.exe一键运行
 ### 3. WebSocket连接
 .env文件可以更改端口
 客户端可以连接到 `ws://127.0.0.1:8888` 发送和接收消息
-ntqq的llonebot插件配置ws：ws://127.0.0.1:port/ws/qq
+ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
 
 ### 适配器管理
 
@@ -211,6 +211,19 @@ win框架支持以下环境变量配置：
 
 - **位置**: 所有插件都应放置在 `plugins/` 目录下。
 - **入口**: 框架会寻找并执行插件模块中的 `register` 函数来初始化插件。
+
+### 关于计划任务怎么判断是否内部命令（两种方式）,搭配计划任务功能食用
+1、message.get("internal_source") = True(内部来源)
+2、message.get("platform") = internal(内部来源)
+### 图片和视频（CQ码）
+image: 类型base64数据,url
+video,voice: url
+[CQ:image,file=base64://{image}]/[CQ:image,file={image}]
+video
+[CQ:video,file={video}]
+voice
+[CQ:voice,file={voice}]
+例如: await middleware.send_message(message.get("platform"),target_id,f"{[CQ:video,file={video}]}",message)
 
 一个最简单的插件结构如下：
 
