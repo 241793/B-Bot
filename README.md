@@ -701,7 +701,7 @@ def register(m: Middleware):
 
 ```
 
-# 青龙调用
+# 青龙调用,调用函数
 
 ## 方法一
 
@@ -763,6 +763,24 @@ def delete_envs(self, ids: list):
         return response.json()
     except requests.RequestException as e:
         raise Exception(f"删除环境变量失败: {e}")
+def disable_envs(self, ids: list):
+    """禁用环境变量"""
+    self._get_token()
+    try:
+        response = requests.put(f"{self.url}/open/envs/disable", headers=self.headers, json=ids, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        raise Exception(f"禁用环境变量失败: {e}")
+def enable_envs(self, ids: list):
+    """启用环境变量"""
+    self._get_token()
+    try:
+        response = requests.put(f"{self.url}/open/envs/enable", headers=self.headers, json=ids, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        raise Exception(f"启用环境变量失败: {e}")
 ```
 
 
@@ -813,7 +831,18 @@ async def update_env(self, env_id: Any, name: str, value: str, remarks: Optional
     payload = {"id": env_id, "name": name, "value": value, "remarks": remarks or ''}
     result = await self._request("PUT", "envs", json=payload)
     return result is not None
-
+async def disable_env(self, env_ids: List[Any]) -> bool:
+    """
+    禁用环境变量。
+    """
+    result = await self._request("PUT", "envs/disable", json=env_ids)
+    return result is not None
+async def enable_env(self, env_ids: List[Any]) -> bool:
+    """
+    启用环境变量。
+    """
+    result = await self._request("PUT", "envs/enable", json=env_ids)
+    return result is not None
 async def delete_env(self, env_ids: List[Any]) -> bool:
     """
     删除一个或多个环境变量。
