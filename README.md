@@ -2,38 +2,37 @@
 
 本项目仅提供学习和参考,请勿违法操作,请于24小时内删除！
 
-一个类似奥特曼的机器人框架,通过大蟒实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具。
-胜利电脑需要有大蟒环境
+一个类似奥特曼的机器人框架,通过python实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具。
+win电脑需要有python环境
 
-ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
+ntqq的llonebot插件配置ws:ws://127.0.0.1:port/ws/qq
 
-对接即时通信软件教程：<a href=" https://BC home . DP DNS . org/index . PHP/archives/157/" 目标=" _blank ">llonebot(win/docker)</a>
+对接qq教程：<a href="https://bchome.dpdns.org/index.php/archives/157/" target="_blank">llonebot(win/docker)</a>
 
-码头工人教程：<a href=" https://BC home . DP DNS . org/index . PHP/archives/168/" 目标=" _blank ">部署码头工人</a>
+docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target="_blank">docker</a>
 
-```码头工人
-docker运行-d \
--p 8888:8888 \
--p 5000:5000 \
--e WEB_UI_PORT=5000 \
--e qq_PORT=8888 \
--v你的码头工人文件夹地址/data:/app/data \
--v你的码头工人文件夹地址/插件:/app/插件\
--名称b-bot-container \
--重新启动，除非-停止\
-b-bot
+```docker
+docker run -d \
+  -p 8888:8888 \
+  -p 5000:5000 \
+  -e WEB_UI_PORT=5000 \
+  -e qq_PORT=8888 \
+  -v 你的docker文件夹地址/data:/app/data \
+  -v 你的docker文件夹地址/plugins:/app/plugins \
+  --name b-bot-container \
+  --restart unless-stopped \
+  b-bot
 
-
-码头流水作业
--第8888页:8888页
--5000便士:5000英镑
--e WEB_UI_PORT="5000 " `
--e qq_PORT="8888 " `
+ docker run -d `
+  -p 8888:8888 `
+  -p 5000:5000 `
+  -e WEB_UI_PORT="5000" `
+  -e qq_PORT="8888" `
   -v "你的docker文件夹地址\data:/app/data" `
   -v "你的docker文件夹地址\plugins:/app/plugins" `
   --name b-bot-container `
   --restart unless-stopped `
-b-bot
+  b-bot
 ```
 ## 功能特性
 
