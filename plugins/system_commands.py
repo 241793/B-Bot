@@ -2,18 +2,18 @@
 # 功能：提供框架内置的基础指令，如时间查询、管理员设置等。
 __system__ = True
 
+
 import datetime
 import asyncio
 import os
 import re
-import sys
+import sys,ast
 import psutil  # 用于获取系统状态
 from middleware.middleware import Middleware
 from config import config
 
 # 将 middleware 实例存储在模块级别
 middleware_instance: Middleware = None
-
 
 async def system_command_handler(message: dict):
     """
@@ -52,22 +52,22 @@ async def system_command_handler(message: dict):
             return {"content": "当前平台不支持点赞哦。"}
 
     # --- 需要管理员权限的指令 ---
-
+    
     is_admin = await middleware_instance.is_admin(user_id)
-
+    
     # 授权码查询指令
     if content == "授权码" and is_admin:
         if hasattr(middleware_instance, 'license_manager'):
             license_mgr = middleware_instance.license_manager
             # 强制刷新一次验证状态
             await license_mgr.validate()
-
+            
             status = license_mgr.get_status()
             if not status['valid']:
                 if "过期" in status['message']:
                     return {"content": "授权码已到期"}
                 return {"content": f"授权码无效: {status['message']}"}
-
+            
             expires_at = status.get('expires_at', '未知')
             return {"content": f"到期时间: {expires_at}"}
         else:
@@ -105,7 +105,7 @@ async def system_command_handler(message: dict):
         adapter = middleware_instance.adapters.get(platform)
         if adapter and hasattr(adapter, 'ban'):
             try:
-                await adapter.ban(ban_qq, group_id, duration)
+                await adapter.ban(ban_qq,group_id, duration)
                 return {"content": f"{ban_qq}被禁言{duration}秒"}
             except Exception as e:
                 middleware_instance.logger.error(f"执行'禁言'指令失败: {e}")
@@ -114,6 +114,7 @@ async def system_command_handler(message: dict):
             return {"content": "当前平台不支持禁言哦。"}
     if content.startswith("踢 ") and is_admin:
         ban_qq = content.split(" ")[1]
+
 
         add2 = False
         tt = "允许"
@@ -125,7 +126,7 @@ async def system_command_handler(message: dict):
         adapter = middleware_instance.adapters.get(platform)
         if adapter and hasattr(adapter, 'ban'):
             try:
-                await adapter.kick(ban_qq, group_id, add2)
+                await adapter.kick(ban_qq,group_id, add2)
                 return {"content": f"{ban_qq}被踢出群,{tt}再次加群"}
             except Exception as e:
                 middleware_instance.logger.error(f"执行'踢人'指令失败: {e}")
@@ -135,12 +136,12 @@ async def system_command_handler(message: dict):
     # 3. 重启指令
     if content == "重启" and is_admin:
         await middleware_instance.send_response(message, {"content": "机器人正在重启..."})
-        await asyncio.sleep(1)  # 留出时间发送消息
-
+        await asyncio.sleep(1) # 留出时间发送消息
+        
         # 使用 os.execv 重启脚本
         python = sys.executable
         os.execv(python, [python] + sys.argv)
-        return None  # 这行代码实际上不会执行
+        return None # 这行代码实际上不会执行
     if content == "myuid":
         return {"content": f"{user_id}"}
     # 4. 系统状态指令
@@ -148,13 +149,13 @@ async def system_command_handler(message: dict):
         cpu_usage = psutil.cpu_percent(interval=1)
         memory_info = psutil.virtual_memory()
         disk_info = psutil.disk_usage('/')
-
+        
         status_report = (
             f"💻 系统状态报告:\n"
             f"-------------------\n"
             f"CPU 使用率: {cpu_usage}%\n"
-            f"内存使用率: {memory_info.percent}% ({memory_info.used / 1024 ** 3:.2f}G / {memory_info.total / 1024 ** 3:.2f}G)\n"
-            f"磁盘使用率: {disk_info.percent}% ({disk_info.used / 1024 ** 3:.2f}G / {disk_info.total / 1024 ** 3:.2f}G)"
+            f"内存使用率: {memory_info.percent}% ({memory_info.used/1024**3:.2f}G / {memory_info.total/1024**3:.2f}G)\n"
+            f"磁盘使用率: {disk_info.percent}% ({disk_info.used/1024**3:.2f}G / {disk_info.total/1024**3:.2f}G)"
         )
         return {"content": status_report}
 
@@ -174,7 +175,7 @@ async def system_command_handler(message: dict):
         try:
             new_admin_id = content[len("add admin "):].strip()
             if not new_admin_id:
-                return {"content": "指令格式错误。用法: add admin <user_id>"}
+                 return {"content": "指令格式错误。用法: add admin <user_id>"}
             success = await middleware_instance.add_admin(new_admin_id, user_id)
             if success:
                 return {"content": f"管理员 {new_admin_id} 添加成功！"}
@@ -187,7 +188,7 @@ async def system_command_handler(message: dict):
     if content.startswith("关闭群聊回复") and is_admin:
         await middleware_instance.bucket_set("system", "group_reply_enabled", False)
         return {"content": "所有群聊的自动回复功能已关闭。"}
-
+    
     if content.startswith("开启群聊回复") and is_admin:
         await middleware_instance.bucket_set("system", "group_reply_enabled", True)
         return {"content": "所有群聊的自动回复功能已开启。"}
@@ -220,37 +221,12 @@ async def system_command_handler(message: dict):
     if content == "关闭私聊" and is_admin:
         await middleware_instance.bucket_set("system", "private_reply_enabled", False)
         return {"content": "面向普通用户的私聊回复功能已关闭。"}
-
+        
     if content == "开启私聊" and is_admin:
         await middleware_instance.bucket_set("system", "private_reply_enabled", True)
         return {"content": "面向普通用户的私聊回复功能已开启。"}
-    if content == "识图":
-        await middleware_instance.send_message(message.get("platform"), user_id, {"content": "请发送图片或者链接。"},
-                                               message)
-        inp = await middleware_instance.wait_for_input(message, timeout=12000)
-        if inp:
-            if "CQ:image" in inp:
-                imgurl = re.search(r'url=(.*?)&', inp).group(1)
-            elif "http" in inp:
-                imgurl = inp
-            else:
-                return {"content": "请正确发送图片。"}
-            adapter = middleware_instance.adapters.get(platform)
-            if adapter and hasattr(adapter, 'ocr_img'):
-                try:
-                    result = await adapter.ocr_img(imgurl)
-                    if result["status"] == "ok":
-                        tts = ""
-                        for i in result['data']['texts']:
-                            tts += i['text'] + "\n"
-                        return {"content": f"识别：{tts}"}
-                except Exception as e:
-                    middleware_instance.logger.error(f"执行'识图'指令失败: {e}")
-                    return {"content": "识别失败了，稍后再试试吧。"}
-            else:
-                return {"content": "当前平台不支持踢人哦。"}
-    return None
 
+    return None
 
 def register(middleware: Middleware):
     """
