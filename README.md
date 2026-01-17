@@ -106,7 +106,7 @@ ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
 - 规则名称应具有唯一性
 - 代码应包含适当的错误处理
 #### 基本插件结构
-- 一些参数：platform: reverse_ws(ws对接的渠道)、web_ui(web端)
+- 一些参数：platform: qq(ws对接的渠道)、web_ui(web端)
 
 ##### 插件编写方法一
 ```python
@@ -135,7 +135,7 @@ async def handle_message(msg, middleware):
     #这种为直接回复消息，适合结束的地方使用，只支持rules里面绑定的函数使用（例如：handle_message）
     return {
         "content": "回复内容",
-        "to_user_id": user_id
+        "to_user_id": user_id#可选
     }
 
 # 插件规则
@@ -169,7 +169,7 @@ async def handle_message(msg, middleware):
     content = msg["content"]
     if content:
        if re.match("^你好$",content):
-          return {"content": "你也好", "to_user_id": msg["user_id"]}
+          return {"content": "你也好"}
 
 def register(middleware):
     """
@@ -184,8 +184,8 @@ def register(middleware):
 
 win框架支持以下环境变量配置：
 
-- `REVERSE_WS_HOST`: 反向WebSocket服务器主机，默认 `0.0.0.0`
-- `REVERSE_WS_PORT`: 反向WebSocket服务器端口，默认 `8888/ws/qq` (用于发送回复给QQ等平台)
+- `qq_HOST`: 反向WebSocket服务器主机，默认 `0.0.0.0`
+- `qq_PORT`: 反向WebSocket服务器端口，默认 `8888/ws/qq` (用于发送回复给QQ等平台)
 - `WEB_UI_HOST`: Web界面主机，默认 `0.0.0.0`
 - `WEB_UI_PORT`: Web界面端口，默认 `5000`
 
