@@ -392,9 +392,9 @@ __author__ = "开发者"
 #配参
 __param__ = {"required":True,"key":"桶名.key","bool":False,"placeholder":"","name":"输入框的名字","desc":"介绍"}
 # /plugins/admin_only_plugin.py
-from middleware.middleware import Middleware
 
-async def admin_command_handler(message: dict):
+
+async def admin_command_handler(message，middleware):
     content = message.get("content", "")
     user_id = message["user_id"]
     
@@ -404,9 +404,8 @@ async def admin_command_handler(message: dict):
     elif content == "!shutdown" and not middleware.is_admin(user_id):
         return {"content": "抱歉，你没有权限执行此操作。"}
 
-def register(m: Middleware):
+def register(middleware):
     global middleware
-    middleware = m
     middleware.register_message_handler(admin_command_handler)
     print("管理员插件已加载。")
 ```
