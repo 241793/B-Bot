@@ -36,6 +36,12 @@ class Plugin:
         self.description = getattr(module, '__description__', '无描述') if module else '核心中间件'
         self.version = getattr(module, '__version__', '1.0.0') if module else '核心'
         self.author = getattr(module, '__author__', '匿名作者') if module else '系统'
+        
+        # --- 新增：读取模块级别的权限和平台配置 ---
+        self.is_admin = getattr(module, '__admin__', False) if module else False
+        self.im_types = getattr(module, '__imType__', None) if module else None
+        # ---------------------------------------
+        
         self.is_system = is_system
         self.rules = rules
         self.is_loaded = is_loaded
@@ -55,13 +61,36 @@ class PluginManager:
         if plugins_dir not in sys.path:
             sys.path.insert(0, plugins_dir)
         
-        # 【新增】在打包环境下，将 plugins/lib 目录添加到 sys.path
+        # 【增强】更健壮的依赖目录检测逻辑
+        # 尝试多个可能的 plugins/lib 位置，只要存在就添加到 sys.path
+        possible_lib_dirs = []
+        
+        # 1. 相对于当前文件 (__init__.py 在 plugins/ 目录下)
+        # 这是最可靠的方法，因为 lib 通常就在 plugins/lib
+        current_plugins_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_lib_dirs.append(os.path.join(current_plugins_dir, 'lib'))
+
+        # 2. 相对于传入的 plugins_dir 参数
+        if os.path.isabs(self.plugins_dir):
+             possible_lib_dirs.append(os.path.join(self.plugins_dir, 'lib'))
+        else:
+             possible_lib_dirs.append(os.path.abspath(os.path.join(self.plugins_dir, 'lib')))
+
+        # 3. 打包环境下的特殊路径
         if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(sys.executable)
-            lib_dir = os.path.join(base_dir, 'plugins', 'lib')
-            if lib_dir not in sys.path:
-                sys.path.insert(0, lib_dir)
-                self.logger.info(f"已将外部依赖目录添加到 sys.path: {lib_dir}")
+             possible_lib_dirs.append(os.path.join(os.path.dirname(sys.executable), 'plugins', 'lib'))
+
+        # 去重并检查存在性
+        added_paths = set()
+        for lib_dir in possible_lib_dirs:
+            if lib_dir in added_paths:
+                continue
+            
+            if os.path.exists(lib_dir):
+                if lib_dir not in sys.path:
+                    sys.path.insert(0, lib_dir)
+                    self.logger.info(f"已将外部依赖目录添加到 sys.path: {lib_dir}")
+                added_paths.add(lib_dir)
 
         self.disabled_plugins_bucket = self.bucket_manager.get_sync('plugin_manager', 'disabled_plugins', default=[])
 
@@ -99,6 +128,16 @@ class PluginManager:
             else:
                 spec.loader.exec_module(module)
                 sys.modules[name] = module
+
+            # --- 读取插件元数据 ---
+            is_admin = getattr(module, '__admin__', False)
+            im_types = getattr(module, '__imType__', None)
+            if isinstance(im_types, str):
+                im_types = [t.strip() for t in im_types.split(',')]
+            
+            # 将元数据传递给 middleware
+            self.middleware.set_plugin_metadata(name, is_admin=is_admin, im_types=im_types)
+            # -------------------
 
             if hasattr(module, 'register') and callable(getattr(module, 'register')):
                 register_func = getattr(module, 'register')
@@ -333,7 +372,40 @@ class PluginManager:
         if not plugin or not plugin.is_loaded: return
         for rule_dict in plugin.rules:
             rule_name = f"{plugin_name}.{rule_dict['name']}"
-            rule = Rule(name=rule_name, pattern=rule_dict["pattern"], handler=rule_dict["handler"], rule_type=rule_dict.get("rule_type", "regex"), priority=rule_dict.get("priority", 0), description=rule_dict.get("description", ""), source='plugin')
+            
+            extra_kwargs = {}
+            
+            # --- 优先级逻辑：规则级配置 > 插件级配置 ---
+            
+            # 1. 管理员权限
+            if "__admin__" in rule_dict:
+                extra_kwargs["is_admin"] = rule_dict["__admin__"]
+            elif plugin.is_admin:
+                extra_kwargs["is_admin"] = True
+            
+            # 2. IM 平台白名单
+            im_types_val = None
+            if "__imType__" in rule_dict:
+                im_types_val = rule_dict["__imType__"]
+            elif plugin.im_types:
+                im_types_val = plugin.im_types
+            
+            if im_types_val:
+                if isinstance(im_types_val, str):
+                    extra_kwargs["im_types"] = [t.strip() for t in im_types_val.split(',')]
+                else:
+                    extra_kwargs["im_types"] = im_types_val
+            
+            rule = Rule(
+                name=rule_name, 
+                pattern=rule_dict["pattern"], 
+                handler=rule_dict["handler"], 
+                rule_type=rule_dict.get("rule_type", "regex"), 
+                priority=rule_dict.get("priority", 0), 
+                description=rule_dict.get("description", ""), 
+                source='plugin',
+                **extra_kwargs # 传递额外参数
+            )
             await self.rule_engine.add_rule(rule)
         self.logger.debug(f"为插件 {plugin_name} 注册了 {len(plugin.rules)} 条规则。")
 
