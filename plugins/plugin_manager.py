@@ -37,6 +37,11 @@ class Plugin:
         self.author = getattr(module, "__author__", "未知")
         self.is_system = getattr(module, "__system__", False)
         
+        # --- 新增：读取模块级别的权限和平台配置 ---
+        self.is_admin = getattr(module, '__admin__', False)
+        self.im_types = getattr(module, '__imType__', None)
+        # ---------------------------------------
+        
         # 获取插件中定义的规则
         if hasattr(module, "rules"):
             self.rules = module.rules
