@@ -1,4 +1,4 @@
-
+#积分系统
 import base64 as EtUtuwvx
 import zlib as ICXxBXIg
 import hashlib as qdWQvoTi
@@ -17,3 +17,4 @@ try:
     exec(ICXxBXIg.decompress(iREyhtDS).decode('utf-8'))
 except Exception as e:
     print(f"Error executing obfuscated plugin: {e}")
+
