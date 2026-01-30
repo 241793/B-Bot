@@ -216,12 +216,12 @@ win框架支持以下环境变量配置：
 2、message.get("platform") = internal(内部来源)
 ### 图片和视频（CQ码）
 image: 类型base64数据,url
-video,voice: url
+video,record: url
 [CQ:image,file=base64://{image}]/[CQ:image,file={image}]
 video
 [CQ:video,file={video}]
-voice
-[CQ:voice,file={voice}]
+record
+[CQ:record,file={record}]
 例如: await middleware.send_message(message.get("platform"),target_id,f"{[CQ:video,file={video}]}",message)
 
 一个最简单的插件结构如下：
@@ -255,7 +255,7 @@ def register(middleware):
     """
     # 通过中间件注册你的消息处理器
     middleware.register_message_handler(my_message_handler)
-    print("示例插件 'my_awesome_plugin' 已加载并注册了消息处理器。")
+    middleware.logger.info("示例插件 'my_awesome_plugin' 已加载并注册了消息处理器。")#日志打印,print看不见
 
 ```
 
@@ -336,7 +336,6 @@ class ReminderPlugin:
 def register(middleware):
     plugin = ReminderPlugin(middleware)
     middleware.register_message_handler(plugin.add_reminder_handler)
-    print("提醒插件已加载。")
 ```
 
 ### 2.3 使用持久化存储 (Bucket)
