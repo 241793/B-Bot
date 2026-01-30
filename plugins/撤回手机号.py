@@ -4,7 +4,7 @@
 
 __description__ = "Q群自动撤回手机号"
 __version__ = "1.0.0"
-__author__ = "不才"
+__author__ = "bucai"
 
 
 
@@ -27,4 +27,5 @@ rules = [
     "priority": 10,#优先级
     "description": "匹配问候语并回应"#插件介绍不用填
     }
+
 ]
