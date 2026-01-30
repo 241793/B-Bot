@@ -72,6 +72,24 @@ async def system_command_handler(message: dict):
             return {"content": f"到期时间: {expires_at}"}
         else:
             return {"content": "无法获取授权管理器实例。"}
+    if re.search('^bot[a-zA-Z0-9]+$', message.get('content', '')) and is_admin:
+        content = re.search('^bot[a-zA-Z0-9]+$', message.get('content', '')).group(0)
+        if hasattr(middleware_instance, 'license_manager'):
+            license_mgr = middleware_instance.license_manager
+            # 强制刷新一次验证状态
+            await license_mgr.validate(content)
+
+            status = license_mgr.get_status()
+            if not status['valid']:
+                if "过期" in status['message']:
+                    return {"content": "授权码已到期"}
+                return {"content": f"授权码无效: {status['message']}"}
+            else:
+                await license_mgr.set_kami(content)
+                expires_at = status.get('expires_at', '未知')
+                return {"content": f"上传卡密成功，到期时间: {expires_at}【可能需要重启系统】"}
+        else:
+            return {"content": "无法获取授权管理器实例。"}
 
     if content == "banall" and is_admin:
 
