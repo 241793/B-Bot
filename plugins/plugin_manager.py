@@ -1,240 +1,244 @@
 """
-青龙面板集成插件
-允许通过聊天指令与青龙面板进行交互，并接收青龙面板的通知。
+插件管理器
+负责插件的加载、卸载、管理和执行
 """
-from containers.qinglong_client import QinglongClient
-from containers.qinglong import QinglongContainer
-from utils.logger import get_logger
+import os
+import sys
+import importlib.util
 import asyncio
-from middleware.middleware import Middleware
+from typing import Dict, List, Any, Optional, Callable
+from pathlib import Path
+import logging
+from utils.logger import get_logger
+__system__ = True
 
-__description__ = "通过聊天指令与青龙面板交互，并接收通知,通知功能，底部看指令，使用指令ql notify开启通知，可以多用户渠道，ql filter title，添加白名单，例如青龙调用notify.py,notify.send(title,'内容')"
-__version__ = "1.2.0"
-__author__ = "bucai"
-
-logger = get_logger(__name__)
-
-async def handle_ql_command(message, middleware):
-    """处理ql指令"""
-    if not await middleware.is_admin(message["user_id"]):
-        return {"content": "您没有权限执行此操作。", "to_user_id": message["user_id"]}
-    content = message.get('content', '').strip()
-    parts = content.split()
-    if len(parts) < 3 or parts[0].lower() != 'ql' or parts[1].lower() != 'run':
-        return
-    task_identifier = parts[2]
-    container_name = parts[3] if len(parts) > 3 else None
-    containers_config = await middleware.bucket_manager.get("system", "containers", {})
-    if not containers_config:
-        return {"content": "尚未配置任何青龙容器。", "to_user_id": message["user_id"]}
-
-    target_container = None
-    if container_name:
-        if container_name in containers_config and containers_config[container_name].get('enabled'):
-            target_container = containers_config[container_name]
-            target_container['name'] = container_name
-        else:
-            return {
-                "content": f"未找到名为 '{container_name}' 的已启用容器。",
-                "to_user_id": message["user_id"]
-            }
-    else:
-        # 查找第一个启用的容器作为默认容器
-        for name, config in containers_config.items():
-            if config.get('enabled'):
-                target_container = config
-                target_container['name'] = name
-                break
+class Plugin:
+    """
+    插件类，封装单个插件的信息和功能
+    """
     
-    if not target_container:
-        return {
-                "content": "没有可用的已启用青龙容器。",
-                "to_user_id": message["user_id"]
-            }
-
-    client = QinglongClient(
-        url=target_container['url'],
-        client_id=target_container['client_id'],
-        client_secret=target_container['client_secret']
-    )
-
-    try:
-        await middleware.send_message(platform=message["platform"], target_id=message["user_id"], content=f"正在容器 '{target_container['name']}' 中查找任务 '{task_identifier}'...", msg=message)
-
-        crons_response = await asyncio.get_running_loop().run_in_executor(None, client.get_crons)
-        if crons_response.get('code') != 200:
-            return {
-                "content": f"无法从容器 '{target_container['name']}' 获取任务列表: {crons_response.get('message', '未知错误')}",
-                "to_user_id": message["user_id"]
-            }
-
-        all_crons = crons_response["data"].get('data', [])
-        target_cron_id = None
-
-        # 尝试按ID或名称查找任务
-        for cron in all_crons:
-            if str(cron.get('id')) == task_identifier or task_identifier in cron.get('name', ''):
-                target_cron_id = cron.get('id')
-                break
+    def __init__(self, name: str, module, file_path: str):
+        """
+        初始化插件
+        :param name: 插件名称
+        :param module: 插件模块
+        :param file_path: 插件文件路径
+        """
+        self.name = name
+        self.module = module
+        self.file_path = file_path
+        self.is_loaded = True
+        self.rules = []  # 插件定义的规则列表
+        self.logger = get_logger(f"plugin.{name}")
         
-        if not target_cron_id:
-            return {
-                "content": f"在容器 '{target_container['name']}' 中未找到任务 '{task_identifier}'。",
-                "to_user_id": message["user_id"]
-            }
-        await middleware.send_message(platform=message["platform"], target_id=message["user_id"],content=f"正在运行任务 '{task_identifier}' (ID: {target_cron_id})...", msg=message)
-        run_response = await asyncio.get_running_loop().run_in_executor(None, lambda: client.run_cron([target_cron_id]))
-
-        if run_response.get('code') == 200:
-            return {
-                "content": f"任务 '{task_identifier}' 已成功触发。",
-                "to_user_id": message["user_id"]
-            }
-
-        else:
-            return {
-                "content": f"任务 '{task_identifier}' 运行失败: {run_response.get('message', '未知错误')}",
-                "to_user_id": message["user_id"]
-            }
+        # 尝试获取插件信息
+        self.description = getattr(module, "__description__", "无描述")
+        self.version = getattr(module, "__version__", "1.0.0")
+        self.author = getattr(module, "__author__", "未知")
+        self.is_system = getattr(module, "__system__", False)
+        
+        # --- 新增：读取模块级别的权限和平台配置 ---
+        self.is_admin = getattr(module, '__admin__', False)
+        self.im_types = getattr(module, '__imType__', None)
+        # ---------------------------------------
+        
+        # 获取插件中定义的规则
+        if hasattr(module, "rules"):
+            self.rules = module.rules
+        elif hasattr(module, "get_rules"):
+            self.rules = module.get_rules()
 
 
-    except Exception as e:
-        logger.error(f"处理ql指令时出错: {e}")
-        return {
-            "content": f"执行指令时发生错误: {e}",
-            "to_user_id": message["user_id"]
-        }
-
-async def handle_ql_notify_config(message, middleware):
-    """配置青龙通知目标"""
-    if not await middleware.is_admin(message["user_id"]):
-         return {"content": "您没有权限执行此操作。", "to_user_id": message["user_id"]}
+class PluginManager:
+    """
+    插件管理器，负责插件的加载、卸载、管理和执行
+    """
     
-    # 确定目标ID (群组ID 或 用户ID)
-
-
-    if message.get("group_id"):
-        target_id = message.get("group_id")
-        platform = message.get("platform") + "_group"
-    else:
-        target_id = message.get("user_id")
-        platform = message.get("platform")
-    
-    if not target_id or not platform:
-        return {"content": "无法获取当前会话信息。", "to_user_id": message["user_id"]}
-
-    config = await middleware.bucket_manager.get("qinglong", "notify_targets", [])
-    
-    # 检查是否已存在
-    exists = False
-    for t in config:
-        if t['platform'] == platform and t['target_id'] == target_id:
-            exists = True
-            break
-    
-    if exists:
-        # 移除 (关闭)
-        config = [t for t in config if not (t['platform'] == platform and t['target_id'] == target_id)]
-        await middleware.bucket_manager.set("qinglong", "notify_targets", config)
-        return {"content": "已关闭本会话的青龙面板通知。", "to_user_id": target_id}
-    else:
-        # 添加 (开启)
-        config.append({'platform': platform, 'target_id': target_id})
-        await middleware.bucket_manager.set("qinglong", "notify_targets", config)
-        return {"content": "已开启本会话的青龙面板通知。", "to_user_id": target_id}
-
-async def handle_ql_filter_config(message, middleware):
-    """配置青龙通知过滤关键词"""
-    if not await middleware.is_admin(message["user_id"]):
-         return {"content": "您没有权限执行此操作。", "to_user_id": message["user_id"]}
-    
-    content = message.get('content', '').strip()
-    parts = content.split()
-    
-    # ql filter <keyword>
-    if len(parts) < 3:
-        # 列出当前过滤器
-        whitelist = await middleware.bucket_manager.get("qinglong", "notify_whitelist", [])
-        if not whitelist:
-            return {"content": "当前未配置通知过滤，所有通知都会发送。\n使用 'ql filter <关键词>' 添加过滤。", "to_user_id": message["user_id"]}
-        else:
-            return {"content": f"当前通知白名单关键词：\n{', '.join(whitelist)}\n使用 'ql filter <关键词>' 移除。", "to_user_id": message["user_id"]}
-
-    keyword = parts[2]
-    whitelist = await middleware.bucket_manager.get("qinglong", "notify_whitelist", [])
-    
-    if keyword in whitelist:
-        whitelist.remove(keyword)
-        await middleware.bucket_manager.set("qinglong", "notify_whitelist", whitelist)
-        return {"content": f"已移除过滤关键词: {keyword}", "to_user_id": message["user_id"]}
-    else:
-        whitelist.append(keyword)
-        await middleware.bucket_manager.set("qinglong", "notify_whitelist", whitelist)
-        return {"content": f"已添加过滤关键词: {keyword}", "to_user_id": message["user_id"]}
-
-async def handle_webhook(title, content):
-    """处理来自青龙面板的Webhook通知"""
-    # 获取配置的通知目标
-    # 使用 global middleware (由 PluginManager 注入)
-    if 'middleware' not in globals():
-        logger.error("Middleware not injected into plugin")
-        return False
-    
-    mw = globals()['middleware']
-    
-    # --- 过滤逻辑 ---
-    whitelist = await mw.bucket_manager.get("qinglong", "notify_whitelist", [])
-    if whitelist:
-        matched = False
-        for keyword in whitelist:
-            if keyword in title:
-                matched = True
-                break
-        if not matched:
-            logger.info(f"青龙通知 '{title}' 被过滤，因为不包含白名单关键词。")
-            return False
-    # ----------------
-
-    targets = await mw.bucket_manager.get("qinglong", "notify_targets", [])
-    
-    if not targets:
-        logger.warning("收到青龙通知，但未配置任何通知目标。请在群组或私聊中使用 'ql notify' 开启通知。")
-        return False
-
-    for target in targets:
+    def __init__(self, middleware, plugins_dir: str = "plugins"):
+        """
+        初始化插件管理器
+        :param middleware: 中间件实例
+        :param plugins_dir: 插件目录
+        """
+        self.middleware = middleware
+        self.plugins_dir = plugins_dir
+        self.plugins: Dict[str, Plugin] = {}
+        self.logger = get_logger("plugin_manager")
+        
+    def load_plugin(self, plugin_name: str) -> bool:
+        """
+        加载单个插件
+        :param plugin_name: 插件名称（不包含.py扩展名）
+        :return: 是否加载成功
+        """
         try:
-            # 构造消息内容
-            msg_content = f"【青龙通知】{title}\n{content}"
-            msg_content += f"\n\n此消息来自 {target['platform']} {target['target_id']}"
-            if '_group' in target['platform']:
-                await mw.push_to_group(target['platform'].replace("_group",""), target['target_id'], msg_content)
-            else:
-                await mw.push_to_user(target['platform'], target['target_id'], msg_content)
+            plugin_file = os.path.join(self.plugins_dir, f"{plugin_name}.py")
+            
+            if not os.path.exists(plugin_file):
+                self.logger.error(f"插件文件不存在: {plugin_file}")
+                return False
+            
+            # 动态导入插件模块
+            spec = importlib.util.spec_from_file_location(plugin_name, plugin_file)
+            module = importlib.util.module_from_spec(spec)
+            
+            # 将middleware注入到模块的全局变量中
+            module.middleware = self.middleware
+            
+            spec.loader.exec_module(module)
+            
+            # 创建插件实例
+            plugin = Plugin(plugin_name, module, plugin_file)
+            self.plugins[plugin_name] = plugin
+            
+            self.logger.info(f"插件 {plugin_name} 加载成功 - {plugin.description} (v{plugin.version} by {plugin.author})")
+            return True
+            
         except Exception as e:
-            logger.error(f"发送通知到 {target} 失败: {e}")
-    return True
+            self.logger.error(f"加载插件 {plugin_name} 失败: {e}")
+            return False
+    
+    def unload_plugin(self, plugin_name: str) -> bool:
+        """
+        卸载单个插件
+        :param plugin_name: 插件名称
+        :return: 是否卸载成功
+        """
+        if plugin_name not in self.plugins:
+            self.logger.warning(f"插件 {plugin_name} 未加载")
+            return False
 
-# 定义规则
-rules = [
-    {
-        "name": "ql_command_rule",
-        "pattern": r"^ql\s+run\s+.*",
-        "handler": handle_ql_command,
-        "priority": 100,
-        "description": "处理青龙面板运行任务的指令"
-    },
-    {
-        "name": "ql_notify_config_rule",
-        "pattern": r"^ql\s+notify$",
-        "handler": handle_ql_notify_config,
-        "priority": 100,
-        "description": "开启/关闭当前会话的青龙面板通知"
-    },
-    {
-        "name": "ql_filter_config_rule",
-        "pattern": r"^ql\s+filter.*",
-        "handler": handle_ql_filter_config,
-        "priority": 100,
-        "description": "配置青龙通知过滤关键词"
-    }
-]
+        if self.plugins[plugin_name].is_system:
+            self.logger.warning(f"插件 {plugin_name} 是系统插件，不能卸载")
+            return False
+        
+        try:
+            plugin = self.plugins[plugin_name]
+            
+            # 如果插件有卸载函数，调用它
+            if hasattr(plugin.module, "unload"):
+                plugin.module.unload()
+            
+            # 从系统模块中删除插件
+            module_name = plugin.module.__name__
+            if module_name in sys.modules:
+                del sys.modules[module_name]
+            
+            # 从插件管理器中删除插件
+            del self.plugins[plugin_name]
+            
+            self.logger.info(f"插件 {plugin_name} 希载成功")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"卸载插件 {plugin_name} 失败: {e}")
+            return False
+    
+    def load_all_plugins(self) -> int:
+        """
+        加载所有插件
+        :return: 成功加载的插件数量
+        """
+        if not os.path.exists(self.plugins_dir):
+            self.logger.warning(f"插件目录不存在: {self.plugins_dir}")
+            return 0
+        
+        loaded_count = 0
+        for file in os.listdir(self.plugins_dir):
+            if file.endswith(".py") and not file.startswith("__"):
+                plugin_name = file[:-3]  # 移除.py扩展名
+                if self.load_plugin(plugin_name):
+                    loaded_count += 1
+        
+        self.logger.info(f"插件加载完成，共加载 {loaded_count} 个插件")
+        return loaded_count
+    
+    def reload_plugin(self, plugin_name: str) -> bool:
+        """
+        重新加载插件
+        :param plugin_name: 插件名称
+        :return: 是否重新加载成功
+        """
+        if plugin_name in self.plugins and self.plugins[plugin_name].is_system:
+            self.logger.warning(f"插件 {plugin_name} 是系统插件，不能重新加载")
+            return False
+
+        # Invalidate file system caches to ensure the latest code is loaded
+        importlib.invalidate_caches()
+
+        if plugin_name in self.plugins:
+            self.unload_plugin(plugin_name)
+        
+        return self.load_plugin(plugin_name)
+    
+    def get_plugin(self, plugin_name: str) -> Optional[Plugin]:
+        """
+        获取插件实例
+        :param plugin_name: 插件名称
+        :return: 插件实例或None
+        """
+        return self.plugins.get(plugin_name)
+    
+    def get_all_plugins(self) -> Dict[str, Plugin]:
+        """
+        获取所有插件
+        :return: 插件字典
+        """
+        return self.plugins.copy()
+    
+    def get_plugin_rules(self) -> List[Dict[str, Any]]:
+        """
+        获取所有插件的规则
+        :return: 规则列表
+        """
+        all_rules = []
+        for plugin in self.plugins.values():
+            all_rules.extend(plugin.rules)
+        return all_rules
+    
+    def scan_plugins(self) -> List[str]:
+        """
+        扫描插件目录中的所有插件文件
+        :return: 插件文件名列表（不含.py扩展名）
+        """
+        if not os.path.exists(self.plugins_dir):
+            self.logger.warning(f"插件目录不存在: {self.plugins_dir}")
+            return []
+        
+        plugin_files = []
+        for file in os.listdir(self.plugins_dir):
+            if file.endswith(".py") and not file.startswith("__"):
+                plugin_name = file[:-3]  # 移除.py扩展名
+                plugin_files.append(plugin_name)
+        
+        return plugin_files
+    
+    async def execute_plugin_function(self, plugin_name: str, function_name: str, *args, **kwargs):
+        """
+        执行插件中的特定函数
+        :param plugin_name: 插件名称
+        :param function_name: 函数名称
+        :param args: 位置参数
+        :param kwargs: 关键字参数
+        :return: 函数执行结果
+        """
+        plugin = self.get_plugin(plugin_name)
+        if not plugin:
+            self.logger.error(f"插件 {plugin_name} 未加载")
+            return None
+        
+        if not hasattr(plugin.module, function_name):
+            self.logger.error(f"插件 {plugin_name} 中不存在函数 {function_name}")
+            return None
+        
+        func = getattr(plugin.module, function_name)
+        
+        try:
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            self.logger.error(f"执行插件 {plugin_name} 的函数 {function_name} 失败: {e}")
+            return None
