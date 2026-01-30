@@ -129,6 +129,9 @@ class PluginManager:
                 spec.loader.exec_module(module)
                 sys.modules[name] = module
 
+            # 注入 middleware 到插件模块
+            module.middleware = self.middleware
+
             # --- 读取插件元数据 ---
             is_admin = getattr(module, '__admin__', False)
             im_types = getattr(module, '__imType__', None)
@@ -414,3 +417,38 @@ class PluginManager:
         tasks = [self.rule_engine.remove_rule(rule.name) for rule in rules_to_remove]
         await asyncio.gather(*tasks)
         self.logger.debug(f"为插件 {plugin_name} 注销了 {len(rules_to_remove)} 条规则。")
+
+    async def execute_plugin_function(self, plugin_name: str, function_name: str, *args, **kwargs):
+        """
+        执行插件中的特定函数
+        :param plugin_name: 插件名称
+        :param function_name: 函数名称
+        :param args: 位置参数
+        :param kwargs: 关键字参数
+        :return: 函数执行结果
+        """
+        plugin = self.get_plugin(plugin_name)
+        # 检查插件是否存在且已加载 (注意：get_plugin 返回的对象可能有 is_loaded=False)
+        if not plugin:
+            self.logger.error(f"插件 {plugin_name} 不存在")
+            return None
+            
+        if not plugin.is_loaded:
+             self.logger.error(f"插件 {plugin_name} 未加载")
+             return None
+        
+        if not hasattr(plugin.module, function_name):
+            self.logger.error(f"插件 {plugin_name} 中不存在函数 {function_name}")
+            return None
+        
+        func = getattr(plugin.module, function_name)
+        
+        try:
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            self.logger.error(f"执行插件 {plugin_name} 的函数 {function_name} 失败: {e}", exc_info=True)
+            return None
