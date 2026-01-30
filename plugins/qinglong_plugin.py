@@ -11,7 +11,7 @@ from middleware.middleware import Middleware
 __description__ = "通过聊天指令与青龙面板交互，并接收通知,通知功能，底部看指令，使用指令ql notify开启通知，可以多用户渠道，ql filter title，添加白名单，例如青龙调用notify.py,notify.send(title,'内容')"
 __version__ = "1.2.0"
 __author__ = "bucai"
-
+__system__ = True
 logger = get_logger(__name__)
 
 async def handle_ql_command(message, middleware):
@@ -238,3 +238,4 @@ rules = [
         "description": "配置青龙通知过滤关键词"
     }
 ]
+
