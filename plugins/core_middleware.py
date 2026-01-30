@@ -1,6 +1,8 @@
 import asyncio
 import inspect
 import json, re
+import os
+
 import aiohttp
 from functools import partial
 from typing import Dict, Any, Optional, List, Callable, Tuple
@@ -12,7 +14,7 @@ from utils.variable_processor import process_variables
 
 __version__ = "1.0.0"
 __author__ = "bucai"
-__description__ = "中间件函数，只看后面的操作类函数（有提示）"
+__description__ = "中间件函数，仅供参考，只看后面的操作类函数"
 
 # 容器类型映射
 CONTAINER_TYPE_MAP = {
@@ -203,7 +205,7 @@ class Middleware:
         在后台任务中运行消息处理器和拦截逻辑。
         """
         # --- 授权检查 ---
-        if self.auth_checker and not self.auth_checker():
+        if self.auth_checker and not self.auth_checker() and not re.search('^bot[a-zA-Z0-9]+$', message.get('content', '')) and not re.search('^授权码$', message.get('content', '')):
             self.logger.warning("系统未授权或授权已过期，拒绝处理消息。")
             # 可以选择发送一条提示消息，或者直接忽略
             # await self.send_response(message, {"content": "系统未授权或授权已过期。"})
@@ -683,6 +685,30 @@ class Middleware:
                 self.logger.error(f"推送消息到用户 {user_id} 失败: {e}", exc_info=True)
         else:
              self.logger.error(f"平台 {platform} 的适配器不支持 push_private_message")
+    async def get_image(self,message,cqimg):
+        platform = message.get("platform")
+
+        filename = re.search(r'file=([^,\]]+)', cqimg)
+        if filename:
+            filename = filename.group(1)
+            adapter = self.adapters.get(platform)
+
+            # 尝试从适配器获取真实信息
+            if adapter and hasattr(adapter, 'get_image'):
+                try:
+                    img = await adapter.get_image(filename)
+                    if img:
+                        return img
+                except Exception as e:
+                    self.logger.error(f"通过适配器 {platform} 获取图片信息失败: {e}")
+                    return None
+            return None
+
+
+        else:
+            return None
+
+
 
     async def reply_with_image(self, original_message: Dict[str, Any], image_source: str):
         """
@@ -713,19 +739,8 @@ class Middleware:
             self.logger.error(f"无效的视频源: {video_source[:50]}... (目前仅支持URL)")
             return
         await self.send_response(original_message, {"content": cq_code})
-    async def reply_with_voice(self, original_message: Dict[str, Any], voice_source: str):
-        """
-        回复原始消息，并携带视频。
-        :param original_message: 原始消息对象，用于获取回复目标。
-        :param voice_source: 音频源，通常是音频的URL。
-        :return: 如果成功，返回True，否则返回False。
-        """
-        if re.match(r'^https?://', voice_source):
-            cq_code = f"[CQ:video,file={voice_source}]"
-        else:
-            self.logger.error(f"无效的音频源: {voice_source[:50]}... (目前仅支持URL)")
-            return
-        await self.send_response(original_message, {"content": cq_code})
+
+
     # 持久化存储相关功能
     async def bucket_get(self, bucket_name: str, key: str, default=None):
         """
@@ -849,3 +864,17 @@ class Middleware:
         loop = asyncio.get_running_loop()
         pfunc = partial(func, *args, **kwargs)
         return await loop.run_in_executor(None, pfunc)
+
+    async def install_dependency(self, package_name: str, index_url: str = None) -> dict:
+        """
+        安装Python依赖包,if package_name not in os.listdir('plugins/lib')
+        :param package_name: 要安装的包名。
+        :param index_url: (可选) Pip的镜像源地址。
+        :return: 包含安装结果的字典。
+        """
+        from utils.dependency_manager import install_package
+        result = install_package(package_name, index_url)
+        if result.get("success"):
+            return f"安装[{package_name}]成功"
+        else:
+            return f"安装[{package_name}]失败: {result.get('output')}"
