@@ -58,6 +58,30 @@ class PluginManager:
         self.plugins: Dict[str, Plugin] = {}
         self.logger = get_logger("plugin_manager")
 
+        try:
+            Path(self.plugins_dir).mkdir(parents=True, exist_ok=True)
+            init_path = Path(self.plugins_dir) / "__init__.py"
+            if not init_path.exists():
+                init_path.write_text("", encoding="utf-8")
+            seed_files = [
+                "qinglong_api_keys.json",
+                "qinglong_apps.json",
+                "qinglong_crons.json",
+                "qinglong_dependencies.json",
+                "qinglong_envs.json",
+                "qinglong_logs.json",
+                "qinglong_scripts.json",
+                "qinglong_runs.json",
+                "qinglong_settings.json",
+                "qinglong_subscriptions.json",
+            ]
+            for name in seed_files:
+                path = Path(self.plugins_dir) / name
+                if not path.exists():
+                    path.write_text("{}", encoding="utf-8")
+        except Exception:
+            pass
+
         if plugins_dir not in sys.path:
             sys.path.insert(0, plugins_dir)
         
