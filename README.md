@@ -26,7 +26,7 @@ docker run -d \
   -e qq_PORT=8888 \
   -v 你的docker文件夹地址\data:/app/data \
   -v 你的docker文件夹地址\plugins:/app/plugins \
-  241793/b-bot:1.0.1
+  241793/b-bot:latest
 ```
 ## 功能特性
 
