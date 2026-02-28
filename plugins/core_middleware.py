@@ -14,7 +14,7 @@ from utils.variable_processor import process_variables
 
 __version__ = "1.0.0"
 __author__ = "bucai"
-__description__ = "中间件函数，仅供参考，只看后面的操作类函数"
+__description__ = "中间件函数，只看后面的操作类函数（有提示）"
 
 # 容器类型映射
 CONTAINER_TYPE_MAP = {
