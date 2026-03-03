@@ -1,7 +1,7 @@
 #B-Bot
 
 本项目仅提供学习和参考,请勿违法操作,请于24小时内删除！
-
+2026/3/3 1.0.2 优化授权逻辑，新增更新指令，优化后台页面，主题切换，手机端适配
 2026/2/28 1.0.1 新增内置青龙，可告别青龙面板运行脚本
 1.0.0 新增适配器
 
@@ -24,6 +24,7 @@ docker run -d \
   -p 8888:8888 \
   -e WEB_UI_PORT=5000 \
   -e qq_PORT=8888 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   -v 你的docker文件夹地址\data:/app/data \
   -v 你的docker文件夹地址\plugins:/app/plugins \
   241793/b-bot:latest
