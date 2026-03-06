@@ -23,8 +23,6 @@ docker run -d \
   --restart unless-stopped \
   -p 5000:5000 \
   -p 8888:8888 \
-  -e WEB_UI_PORT=5000 \
-  -e qq_PORT=8888 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v 你的docker文件夹地址\data:/app/data \
   -v 你的docker文件夹地址\plugins:/app/plugins \
