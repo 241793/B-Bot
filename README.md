@@ -1014,3 +1014,561 @@ async def delete_env(self, env_ids: List[Any]) -> bool:
     result = await self._request("DELETE", "envs", json=env_ids)
     return result is not None
 ```
+# 新插件开发规范（B-BOT）- 适配奥特曼插件写法
+
+1) 两种插件模式
+b-bot（推荐）：使用 middleware/middleware.py 提供的异步能力,也就是上面的方法。
+ATM兼容：使用 import middleware + Sender 这套同步风格（兼容奥特曼插件）。
+2) b-bot 插件规范（推荐）
+文件头元数据：
+```
+__author__
+__description__
+__version__
+可选：__admin__、__imType__、__param__
+并发/阻塞要求
+async handler 里不要直接 requests、time.sleep。
+需要阻塞操作时：
+await asyncio.to_thread(...) 或 await middleware.run_sync(...)
+延时用 await asyncio.sleep(...)
+```
+4) ATM 兼容插件规范（已适配）
+可识别插件头：
+```
+#[version: 1.0]
+#[param: {"required":true,"key":"","bool":false,"placeholder":"","name":"例子","desc":""}]
+version/class/platform/description/rule/admin/priority/imType/param
+```
+入口支持：
+
+全局：get/set/delete/bucket*/notifyMasters/push/getActiveImtypes
+Sender：getUserID/getMessage/reply/replyImage/replyVoice/replyVideo/listen/input/isAdmin/...
+4) 稳定性要求（两种都适用）
+网络请求必须加超时：timeout=(5, 20)。
+禁止无限重试；用有限重试+退避。
+插件内异常必须捕获并回复可读错误，不要抛出到顶层。
+不要主动 exit()/sys.exit()（ATM 兼容层已兜底，但仍不建议）。
+任何输入做空值判断，避免 None.split() 这类错误,获取桶数据不存在为None,基本获取不到都是None。
+5) 最小模板（b-bot）
+方法一(如果有rules=[]的情况)、
+```
+__author__ = "your_name"
+__description__ = "示例插件"
+__version__ = "1.0.0"
+__admin__ = False
+__imType__ = "qq,web_ui"
+__param__ = {"required":True,"key":"","bool":false,"placeholder":"","name":"例子","desc":""}
+import asyncio
+import requests
+
+async def handle(msg, mw):
+    content = str(msg.get("content", "") or "").strip()
+    if content != "ping":
+        return None
+    # 阻塞请求放线程
+    def _req():
+        return requests.get("https://httpbin.org/get", timeout=(5, 15)).status_code
+    code = await asyncio.to_thread(_req)
+    return {"content": f"pong {code}"}
+    #或者使用,await middleware.run_sync(requests.get,"https://httpbin.org/get")
+
+rules = [{
+    "name": "ping",
+    "pattern": r"^ping$",
+    "handler": handle,
+    "rule_type": "regex",
+    "priority": 0,
+    "description": "连通性测试"
+}]
+方法二(没有rules=[]可以直接写在插件头)、
+__pattern__: r"^ping$"或者列表
+__rule_type__: 默认 "regex"，可不写这个
+__priority__: 默认 0，优先级
+__rule_name__: 默认 "meta_rule"规则名
+__rule_description__: 默认回退到 __description__
+
+from middleware.atm_context import get_current_context
+async def hello_handler(message,middleware):
+    await middleware.send_response(message, {"content": response_content})
+ctx = get_current_context() or {}
+message = ctx.get("message", {})
+middleware = ctx.get("middleware")
+if __name__ == "__main__":
+    import asyncio
+    try:
+        asyncio.run(hello_handler(message,middleware))
+    except RuntimeError:
+        # 防止某些运行环境已有事件循环
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(hello_handler(message,middleware))
+
+```
+6) 最小模板（ATM兼容）
+```
+# [version: 1.0.0]
+# [platform: qq,web]
+# [description: ATM兼容示例]
+# [rule: ^atm\\s+ping$]
+# [admin: false]
+# [priority: 0]
+
+import middleware
+import requests
+
+if __name__ == "__main__":
+    sender = middleware.Sender(middleware.getSenderID())
+    msg = sender.getMessage() or ""
+    if msg.startswith("atm ping"):
+        try:
+            r = requests.get("https://httpbin.org/get", timeout=(5, 15))
+            sender.reply(f"ok {r.status_code}")
+        except Exception as e:
+            sender.reply(f"运行错误: {e}")
+```
+## 奥特曼中间件
+```
+
+def pip_install(module:str):
+    #判断是否安装了模块
+    try:
+        __import__(module)
+    except ImportError:
+        #没有安装模块，安装模块
+        success=os.system("pip3 install "+module)
+        #判断是否安装成功
+        if success!=0:
+            raise Exception("安装模块失败")
+        else:
+            #安装成功，重新导入模块
+            __import__(module)
+        
+def printf(message):
+    print(message, "(line:", sys._getframe().f_lineno, ")")
+    sys.stdout.flush()
+
+# 根据操作系统选择请求方式
+def get_service_response(path:str,data):
+    compat = _atm_framework_dispatch(path, data)
+    if compat is not None:
+        return compat
+    if platform.system() == 'Windows':
+        return get_http_service_response(path,data)
+    else:
+        return get_sock_service_response(path,data)
+
+# 本地服务的请求，返回请求的数据
+def get_http_service_response(path:str,data):
+    url = "http://127.0.0.1:9999/sock"+path
+    response = requests.post(
+        url=url, 
+        json=data,
+        headers={"Content-Type":"application/json"},
+    )
+    #printf("网络请求响应"+response.text)
+    if response.status_code==200:
+        # 将json字符串转换为json对象
+        json_obj=json.loads(response.text)
+        return json_obj
+    else:
+        raise Exception("请求失败")
+    
+# 本地服务的请求，返回请求的数据
+def get_sock_service_response(path: str, data):
+    socket_path = '/tmp/autMan.sock'
+    request_path = '/sock' + path
+
+    conn = http.client.HTTPConnection('localhost')
+    conn.sock = http.client.socket.socket(http.client.socket.AF_UNIX, http.client.socket.SOCK_STREAM)
+    conn.sock.connect(socket_path)
+
+    body = json.dumps(data)
+
+    conn.request('POST', request_path, body)
+    response = conn.getresponse()
+    response_data = response.read().decode()
+    conn.close()
+
+    if response.status == 200:
+        return json.loads(response_data)
+    else:
+        raise Exception(f"请求失败: {response.reason}")
+
+
+
+# 获取发送者ID,整型
+def getSenderID():
+    try:
+        if len(sys.argv) > 1:
+            return sys.argv[1]
+    except Exception:
+        pass
+    ctx = _atm_get_context()
+    if ctx and isinstance(ctx.get("message"), dict):
+        msg = ctx.get("message") or {}
+        uid = msg.get("user_id")
+        if uid is not None:
+            return str(uid)
+    return ""
+
+
+#获取接入的im类型
+def getActiveImtypes():
+    path="/getActiveImtypes"
+    data={}
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 推送消息
+def push(imType,groupCode,userID,title,content):
+    path="/push"
+    data={
+        "imType":imType,
+        "groupCode":groupCode,
+        "userID":userID,
+        "title":title,
+        "content":content
+    }
+    get_service_response(path,data)
+
+
+
+
+# 获取数据库数据
+def get(key:str):
+    path="/get"
+    data={
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 设置数据库数据
+def set(key,value):
+    path="/set"
+    data={
+        "key":key,
+        "value":value,
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+
+# 删除数据库数据
+def delete(key):
+    path="/delete"
+    data={
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+# 获取指定数据库指定key的值
+def bucketGet(bucket,key):
+    path="/bucketGet"
+    data={
+        "bucket":bucket,
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 设置指定数据库指定key的值
+def bucketSet(bucket,key,value):
+    path="/bucketSet"
+    data={
+        "bucket":bucket,
+        "key":key,
+        "value":value
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+# 删除指定数据库指定key的值
+def bucketDel(bucket,key):
+    path="/bucketDel"
+    data={
+        "bucket":bucket,
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+# 获取指定数据库的所有值为value的keys
+def bucketKeys(bucket,value):
+    path="/bucketKeys"
+    data={
+        "bucket":bucket,
+        "value":value
+    }
+    response=get_service_response(path,data)
+    # 使用逗号分隔字符串
+    return response["data"]
+
+# 获取指定数据库的所有的key集合
+def bucketAllKeys(bucket):
+    path="/bucketAllKeys"
+    data={
+        "bucket":bucket
+    }
+    response=get_service_response(path,data)
+    # 使用逗号分隔字符串
+    return response["data"]
+
+# 获取指定数据库的所有的key-value集合
+def bucketAll(bucket):
+    path="/bucketAll"
+    data={
+        "bucket":bucket,
+    }
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 通知管理员
+def notifyMasters(content,imtypes:list=[]):
+    path="/notifyMasters"
+    data={
+        "content":content,
+        "imtypes":imtypes,
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+
+
+class Sender:
+    # 类的构造函数
+    def __init__(self, senderID:int):
+        self.senderID = senderID
+        
+        # 获取指定数据库指定key的值
+    def bucketGet(self,bucket,key):
+        path="/bucketGet"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "key":key
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 设置指定数据库指定key的值
+    def bucketSet(self,bucket,key,value):
+        path="/bucketSet"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "key":key,
+            "value":value
+        }
+        response=get_service_response(path,data)
+        return response["code"]==200
+
+    # 删除指定数据库指定key的值
+    def bucketDel(self,bucket,key):
+        path="/bucketDel"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "key":key
+        }
+        response=get_service_response(path,data)
+        return response["code"]==200
+
+    # 获取指定数据库的所有值为value的keys
+    def bucketKeys(self,bucket,value):
+        path="/bucketKeys"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "value":value
+        }
+        response=get_service_response(path,data)
+        # 使用逗号分隔字符串
+        return response["data"]
+
+    # 获取指定数据库的所有的key集合
+    def bucketAllKeys(self,bucket):
+        path="/bucketAllKeys"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket
+        }
+        response=get_service_response(path,data)
+        # 使用逗号分隔字符串
+        return response["data"]
+    
+    def bucketAll(self,bucket):
+        path="/bucketAll"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+      
+    # 设置关键词继续向下匹配其它优先级低的插件
+    def response(self,data):
+        path="/response"
+        body={
+            "senderid":self.senderID,
+            "data":data
+        }
+        response=get_service_response(path,body)
+        return response["data"]
+
+    # 获取发送者渠道
+    def getImtype(self):
+        path="/getImtype"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取发送者ID
+    def getUserID(self):
+        path="/getUserID"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        # 去掉字符串两端的引号
+        return response["data"]
+    
+    # 获取发送者昵称
+    def getUserName(self):
+        path="/getUserName"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 获取发送者头像
+    def getUserAvatarUrl(self):
+        path="/getUserAvatarUrl"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 获取发送者群号，返回值是整型
+    def getChatID(self):
+        path="/getChatID"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取发送者群名称
+    def getChatName(self):
+        path="/getChatName"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 是否管理员
+    def isAdmin(self):
+        path="/isAdmin"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 是否ai
+    def getMessage(self):
+        path="/getMessage"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取消息ID
+    def getMessageID(self):
+        path="/getMessageID"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取历史消息ids
+    def recallMessage(self,messageid):
+        path="/recallMessage"
+        data={
+            "senderid":self.senderID,
+            "messageid":messageid
+        }
+        get_service_response(path,data)
+
+
+
+    # 回复文本消息，回复的发送消息的id，list类型
+    def reply(self,text:str):
+        path="/sendText"
+        data={
+            "senderid":self.senderID,
+            "text":text,
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 回复图片消息
+    def replyImage(self,imageUrl):
+        path="/sendImage"
+        data={
+            "senderid":self.senderID,
+            "imageurl":imageUrl
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 回复语音消息
+    def replyVoice(self,voiceUrl):
+        path="/sendVoice"
+        data={
+            "senderid":self.senderID,
+            "voiceurl":voiceUrl
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 回复视频消息
+    def replyVideo(self,videoUrl):
+        path="/sendVideo"
+        data={
+            "senderid":self.senderID,
+            "videourl":videoUrl
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    #回复最终结果
+    def listen(self,timeout:int):
+        path="/listen"
+        data={
+            "senderid":self.senderID,
+            "timeout":timeout
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 等待用户输入,timeout为超时时间，单位为毫秒,recallDuration为撤回用户输入的延迟时间，单位为毫秒，0是不撤回，forGroup为bool值true或false，是否接收群聊所有成员的输入
+    def input(self,timeout:int,recallDuration:int,forGroup:bool):
+        path="/input"
+        data={
+            "senderid":self.senderID,
+            "timeout":timeout,
+            "recallDuration":recallDuration,
+            "forGroup":forGroup,
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+```
