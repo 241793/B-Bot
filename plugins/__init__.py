@@ -8,10 +8,15 @@ import sys
 import asyncio
 import inspect
 import re
+import json
+import ast
 from typing import Dict, Any, List
 from pathlib import Path
 import importlib
 from functools import partial
+import runpy
+from concurrent.futures import ThreadPoolExecutor
+import contextvars
 
 from storage.bucket import BucketManager
 from rule_engine.rule_engine import RuleEngine, Rule
@@ -40,6 +45,8 @@ class Plugin:
         # --- 新增：读取模块级别的权限和平台配置 ---
         self.is_admin = getattr(module, '__admin__', False) if module else False
         self.im_types = getattr(module, '__imType__', None) if module else None
+        self.plugin_class = getattr(module, '__plugin_class__', '') if module else ''
+        self.platform = getattr(module, '__platform__', '') if module else ''
         # ---------------------------------------
         
         self.is_system = is_system
@@ -57,6 +64,8 @@ class PluginManager:
         self.scheduler = scheduler
         self.plugins: Dict[str, Plugin] = {}
         self.logger = get_logger("plugin_manager")
+        # ATM 兼容脚本单独线程池，隔离 requests/time.sleep 对其它插件的影响
+        self.atm_legacy_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="atm_legacy")
 
         try:
             Path(self.plugins_dir).mkdir(parents=True, exist_ok=True)
@@ -118,6 +127,68 @@ class PluginManager:
 
         self.disabled_plugins_bucket = self.bucket_manager.get_sync('plugin_manager', 'disabled_plugins', default=[])
 
+    def _parse_legacy_plugin_headers(self, plugin_path: str) -> Dict[str, Any]:
+        """
+        解析兼容头注释，例如:
+        #[version: 1.0.0]
+        #[description: xxx]
+        #[rule: ^test$]
+        #[param: {...}]
+        """
+        result = {
+            "version": None,
+            "plugin_class": None,
+            "platform": None,
+            "description": None,
+            "rules": [],
+            "admin": None,
+            "priority": None,
+            "im_type": None,
+            "params": []
+        }
+        try:
+            with open(plugin_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception:
+            return result
+
+        for m in re.finditer(r"^\s*#\s*\[(\w+)\s*:\s*(.*?)\]\s*$", content, re.MULTILINE):
+            key = str(m.group(1) or "").strip().lower()
+            raw = str(m.group(2) or "").strip()
+            if key == "version":
+                result["version"] = raw
+            elif key == "class":
+                result["plugin_class"] = raw
+            elif key == "platform":
+                result["platform"] = raw
+            elif key == "description":
+                result["description"] = raw
+            elif key == "rule":
+                if raw:
+                    result["rules"].append(raw)
+            elif key == "admin":
+                result["admin"] = raw.lower() in ("1", "true", "yes", "on")
+            elif key == "priority":
+                try:
+                    result["priority"] = int(raw)
+                except Exception:
+                    result["priority"] = 0
+            elif key == "imtype":
+                result["im_type"] = raw
+            elif key == "param":
+                parsed = None
+                try:
+                    parsed = json.loads(raw)
+                except Exception:
+                    try:
+                        parsed = ast.literal_eval(raw)
+                    except Exception:
+                        parsed = None
+                if isinstance(parsed, dict):
+                    result["params"].append(parsed)
+
+        return result
+
     async def load_all_plugins(self):
         """加载所有未被禁用的插件"""
         self.logger.info("开始加载所有插件...")
@@ -144,6 +215,7 @@ class PluginManager:
 
         try:
             plugin_path = os.path.join(self.plugins_dir, f"{name}.py")
+            legacy_meta = self._parse_legacy_plugin_headers(plugin_path)
             spec = importlib.util.spec_from_file_location(name, plugin_path)
             module = importlib.util.module_from_spec(spec)
 
@@ -156,7 +228,132 @@ class PluginManager:
             # 注入 middleware 到插件模块
             module.middleware = self.middleware
 
+            # 兼容头注释元数据 -> 模块属性（仅在插件未显式定义时回填）
+            if legacy_meta.get("version") and not hasattr(module, "__version__"):
+                module.__version__ = legacy_meta["version"]
+            if legacy_meta.get("description") and not hasattr(module, "__description__"):
+                module.__description__ = legacy_meta["description"]
+            if legacy_meta.get("admin") is not None and not hasattr(module, "__admin__"):
+                module.__admin__ = bool(legacy_meta["admin"])
+            if legacy_meta.get("im_type") and not hasattr(module, "__imType__"):
+                module.__imType__ = legacy_meta["im_type"]
+            if legacy_meta.get("plugin_class") and not hasattr(module, "__plugin_class__"):
+                module.__plugin_class__ = legacy_meta["plugin_class"]
+            if legacy_meta.get("platform") and not hasattr(module, "__platform__"):
+                module.__platform__ = legacy_meta["platform"]
+            if legacy_meta.get("params") and not hasattr(module, "__param__"):
+                module.__param__ = legacy_meta["params"]
+
+            # 兼容 #[rule:]：当插件未提供 rules 时自动生成规则
+            if legacy_meta.get("rules") and not getattr(module, "rules", None):
+                candidate_handler = None
+                for fn_name in ("handle_message", "on_message", "handler", "main", "run"):
+                    fn = getattr(module, fn_name, None)
+                    if callable(fn):
+                        candidate_handler = fn
+                        break
+                if candidate_handler is None:
+                    # 兼容 ATM 脚本风格（仅有 if __name__ == '__main__': 入口）
+                    async def _legacy_script_handler(_msg, _mw, _plugin_path=plugin_path):
+                        loop = asyncio.get_running_loop()
+                        def _run_legacy_script():
+                            try:
+                                return runpy.run_path(_plugin_path, None, "__main__")
+                            except SystemExit:
+                                # ATM 插件里常见 exit()/sys.exit()，这里吞掉避免终止整个框架
+                                return None
+                        try:
+                            ctx = contextvars.copy_context()
+                            await loop.run_in_executor(
+                                self.atm_legacy_executor,
+                                lambda: ctx.run(_run_legacy_script)
+                            )
+                        except BaseException as e:
+                            # 兼容脚本异常只记录，不影响框架主流程
+                            self.logger.error(f"ATM legacy script failed: {_plugin_path}, error: {e}", exc_info=True)
+                        return None
+                    candidate_handler = _legacy_script_handler
+                if candidate_handler:
+                    auto_rules = []
+                    default_priority = legacy_meta.get("priority", 0)
+                    for i, pattern in enumerate(legacy_meta["rules"], 1):
+                        rule_item = {
+                            "name": f"legacy_rule_{i}",
+                            "pattern": pattern,
+                            "handler": candidate_handler,
+                            "rule_type": "regex",
+                            "priority": default_priority if isinstance(default_priority, int) else 0,
+                            "description": legacy_meta.get("description", "")
+                        }
+                        if legacy_meta.get("admin") is not None:
+                            rule_item["__admin__"] = bool(legacy_meta["admin"])
+                        if legacy_meta.get("im_type"):
+                            rule_item["__imType__"] = legacy_meta["im_type"]
+                        auto_rules.append(rule_item)
+                    module.rules = auto_rules
+
             # --- 读取插件元数据 ---
+            # ??????? __pattern__ ???????? rules?
+            # ??:
+            #   __pattern__ = r"..." / ["...", "..."]
+            #   __rule_type__ = "regex" | "keyword" | "exact" (?? regex)
+            #   __priority__ = 0
+            #   __rule_name__ = "xxx" (?????????)
+            #   __rule_description__ = "xxx"
+            #   __handler__ = callable (?????????????)
+            if not getattr(module, "rules", None) and hasattr(module, "__pattern__"):
+                raw_patterns = getattr(module, "__pattern__", None)
+                patterns = []
+                if isinstance(raw_patterns, str):
+                    if raw_patterns.strip():
+                        patterns = [raw_patterns]
+                elif isinstance(raw_patterns, (list, tuple)):
+                    patterns = [str(x) for x in raw_patterns if str(x).strip()]
+
+                if patterns:
+                    # __pattern__ ? ATM ?????????????????????
+                    async def _meta_pattern_script_handler(_msg, _mw, _plugin_path=plugin_path):
+                        loop = asyncio.get_running_loop()
+
+                        def _run_script():
+                            try:
+                                return runpy.run_path(_plugin_path, None, "__main__")
+                            except SystemExit:
+                                return None
+
+                        try:
+                            ctx = contextvars.copy_context()
+                            await loop.run_in_executor(
+                                self.atm_legacy_executor,
+                                lambda: ctx.run(_run_script)
+                            )
+                        except BaseException as e:
+                            self.logger.error(f"Pattern script plugin failed: {_plugin_path}, error: {e}", exc_info=True)
+                        return None
+
+                    rule_type = str(getattr(module, "__rule_type__", "regex") or "regex")
+                    try:
+                        priority = int(getattr(module, "__priority__", 0) or 0)
+                    except Exception:
+                        priority = 0
+                    rule_desc = str(getattr(module, "__rule_description__", getattr(module, "__description__", "")) or "")
+                    base_rule_name = str(getattr(module, "__rule_name__", "meta_rule") or "meta_rule")
+
+                    auto_rules = []
+                    for i, pattern in enumerate(patterns, 1):
+                        rule_name = base_rule_name if len(patterns) == 1 else f"{base_rule_name}_{i}"
+                        auto_rules.append({
+                            "name": rule_name,
+                            "pattern": pattern,
+                            "handler": _meta_pattern_script_handler,
+                            "rule_type": rule_type,
+                            "priority": priority,
+                            "description": rule_desc,
+                        })
+                    module.rules = auto_rules
+                else:
+                    self.logger.warning(f"?? {name} ??? __pattern__ ????? pattern??????????")
+
             is_admin = getattr(module, '__admin__', False)
             im_types = getattr(module, '__imType__', None)
             if isinstance(im_types, str):
