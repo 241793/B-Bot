@@ -1,16 +1,27 @@
+#____b-bot,下面有奥特曼的中间件规则
 import asyncio
 import inspect
 import json, re
 import os
+import uuid
+import hashlib
+import platform
+import socket
+import contextvars
+from datetime import datetime
+import subprocess
+from pathlib import Path
 
 import aiohttp
 from functools import partial
 from typing import Dict, Any, Optional, List, Callable, Tuple
+
 from storage.bucket import BucketManager
 from utils.logger import get_logger
 from containers.base import BaseContainer
 from containers.qinglong import QinglongContainer
 from utils.variable_processor import process_variables
+from config import config
 
 __version__ = "1.0.0"
 __author__ = "bucai"
@@ -92,11 +103,20 @@ class Middleware:
         """
         self.logger.info("正在加载外部容器...")
         container_configs = await self.bucket_manager.get("system", "containers", [])
-        if not isinstance(container_configs, list):
-            self.logger.error("容器配置格式不正确，应为列表。")
+        normalized_configs = []
+        if isinstance(container_configs, dict):
+            # 兼容旧版/插件直接读取的字典结构: {name: {config}}
+            for name, cfg in container_configs.items():
+                one = dict(cfg or {})
+                one["name"] = name
+                normalized_configs.append(one)
+        elif isinstance(container_configs, list):
+            normalized_configs = container_configs
+        else:
+            self.logger.error("容器配置格式不正确，应为列表或字典。")
             return
 
-        for config in container_configs:
+        for config in normalized_configs:
             name = config.get("name")
             container_type = config.get("type")
             
@@ -201,19 +221,60 @@ class Middleware:
             self.logger.info(f"已注销插件 '{plugin_name}' 的 {count} 个消息处理器。")
 
     async def _run_handlers(self, message: Dict[str, Any]):
+        try:
+            from middleware.atm_context import set_current_context
+            set_current_context(self, message)
+        except Exception:
+            pass
+
         """
         在后台任务中运行消息处理器和拦截逻辑。
         """
         # --- 授权检查 ---
-        if self.auth_checker and not self.auth_checker() and not re.search('^bot[a-zA-Z0-9]+$', message.get('content', '')) and not re.search('^授权码$', message.get('content', '')):
+        # Built-in command: machine code
+        content = self._normalize_message_content(message.get("content", ""))
+        if re.fullmatch(r"(?:\u53d1\u9001)?\u673a\u5668\u7801", content):
+            machine_code = await self.get_machine_code()
+            await self.send_response(message, {"content": f"\u673a\u5668\u7801: {machine_code}"})
+            return
+        # Built-in command: Coze chat proxy
+        if re.match(r"^coze\s+", content, re.IGNORECASE):
+            if not await self.is_adapter_enabled("coze"):
+                await self.send_response(message, {"content": "Coze 适配器已禁用"})
+                return
+            prompt = re.sub(r"^coze\s+", "", content, flags=re.IGNORECASE).strip()
+            if not prompt:
+                await self.send_response(message, {"content": "用法: coze 你的问题"})
+                return
+            try:
+                result = await self._coze_chat(message, prompt)
+                await self.send_response(message, {"content": result})
+            except Exception as e:
+                self.logger.error(f"Coze 调用失败: {e}", exc_info=True)
+                await self.send_response(message, {"content": f"Coze 调用失败: {e}"})
+            return
+        if re.fullmatch(r"(?:\u66f4\u65b0|\u5347\u7ea7)", content):
+            user_id = message.get("user_id")
+            if not await self.is_admin(user_id):
+                await self.send_response(message, {"content": "仅管理员可执行更新。"})
+                return
+            await self.send_response(message, {"content": "正在检查远程版本更新，请稍候..."})
+            update_msg = await self._auto_update_from_docker_hub()
+            await self.send_response(message, {"content": update_msg})
+            return
+
+        if self.auth_checker and not self.auth_checker() and not re.search('^bot[a-zA-Z0-9]+$', content) and not re.search('^授权码$', content):
             self.logger.warning("系统未授权或授权已过期，拒绝处理消息。")
             # 可以选择发送一条提示消息，或者直接忽略
             # await self.send_response(message, {"content": "系统未授权或授权已过期。"})
             return
         # ----------------
 
-        # 首先处理变量提交
-        await process_variables(message, self)
+        # 首先处理变量提交（容错，避免异常打断整个消息处理链）
+        try:
+            await process_variables(message, self)
+        except Exception as e:
+            self.logger.error(f"变量提交流程处理失败: {e}", exc_info=True)
 
         user_id = message.get("user_id")
         group_id = message.get("group_id")
@@ -237,7 +298,7 @@ class Middleware:
                     self.logger.debug(f"私聊回复已对普通用户禁用，忽略来自用户 {user_id} 的消息")
                     return
 
-        self.logger.info(f"后台处理消息: {message.get('content', '')}")
+        self.logger.info(f"后台处理消息: {content}")
 
         # 获取当前事件循环
         loop = asyncio.get_running_loop()
@@ -277,7 +338,8 @@ class Middleware:
                         result = await handler(*args)
                     else:
                         # 将同步处理函数放入线程池运行，防止阻塞主循环
-                        result = await loop.run_in_executor(None, handler, *args)
+                        ctx = contextvars.copy_context()
+                        result = await loop.run_in_executor(None, lambda: ctx.run(handler, *args))
 
                     if result:
                         await self.send_response(message, result)
@@ -289,6 +351,42 @@ class Middleware:
             
             if handled:
                 break
+
+    def _normalize_message_content(self, raw: Any) -> str:
+        """Convert message content to plain text for command/rule matching."""
+        if raw is None:
+            return ""
+        if isinstance(raw, str):
+            return raw.strip()
+        if isinstance(raw, list):
+            parts = []
+            for item in raw:
+                if isinstance(item, str):
+                    t = item.strip()
+                    if t:
+                        parts.append(t)
+                    continue
+                if isinstance(item, dict):
+                    data = item.get("data")
+                    if isinstance(data, dict):
+                        t = str(data.get("text", "") or "").strip()
+                        if t:
+                            parts.append(t)
+                            continue
+                    t = str(item.get("text", "") or item.get("content", "") or "").strip()
+                    if t:
+                        parts.append(t)
+                        continue
+                try:
+                    t = str(item).strip()
+                    if t:
+                        parts.append(t)
+                except Exception:
+                    continue
+            return " ".join(parts).strip()
+        if isinstance(raw, dict):
+            return str(raw.get("text", "") or raw.get("content", "") or "").strip()
+        return str(raw).strip()
 
     async def process_message(self, message: Dict[str, Any]):
         """
@@ -878,3 +976,1102 @@ class Middleware:
             return f"安装[{package_name}]成功"
         else:
             return f"安装[{package_name}]失败: {result.get('output')}"
+
+    def _parse_version_tuple(self, version_str: str) -> Optional[Tuple[int, ...]]:
+        """Parse a semver-like string to comparable tuple, e.g. v1.2.3 -> (1,2,3)."""
+        if not version_str:
+            return None
+        normalized = str(version_str).strip().lower().lstrip("v")
+        if not re.fullmatch(r"\d+(?:\.\d+){0,3}", normalized):
+            return None
+        try:
+            return tuple(int(x) for x in normalized.split("."))
+        except Exception:
+            return None
+
+
+    def _normalize_registry_prefix(self, docker_proxy: str) -> str:
+        """
+        docker_proxy 用作 docker pull 的镜像前缀（例如: 1ms.run）。
+        支持用户填写 http(s):// 前缀，会自动去掉协议。
+        """
+        prefix = str(docker_proxy or "").strip().rstrip("/")
+        if not prefix:
+            return ""
+        prefix = re.sub(r"^https?://", "", prefix, flags=re.IGNORECASE)
+        return prefix
+
+    async def _get_latest_version_from_remote(self) -> Tuple[Optional[str], Optional[Tuple[int, ...]], str]:
+        """
+        Get latest version from remote v.json:
+        https://raw.githubusercontent.com/241793/B-Bot/refs/heads/main/v.json
+        """
+        proxies = ["http://gh.shgdym.xyz/", "https://gh.whjpd.top/gh/", "https://gh.301.ee/",""]
+        for p in proxies:
+            url = f"{p}https://raw.githubusercontent.com/241793/B-Bot/refs/heads/main/v.json"
+            timeout = aiohttp.ClientTimeout(total=20)
+            last_err = ""
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        last_err = f"HTTP {resp.status}"
+                        continue
+                    data = await resp.json(content_type=None)
+                    latest = str(data.get("v", "")).strip()
+                    parsed = self._parse_version_tuple(latest)
+                    if not parsed:
+                        last_err = f"远程版本号格式无效: {latest}"
+                    return latest, parsed, ""
+        return None, None, f"获取远程版本失败: {last_err or '未知错误'}"
+
+    async def _run_docker_cmd(self, args: List[str], env: Optional[Dict[str, str]] = None, timeout: int = 180) -> Tuple[int, str]:
+        """Run a docker command asynchronously and return (returncode, output)."""
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env=env
+        )
+        try:
+            out_bytes, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            return 124, f"命令超时: {' '.join(args)}"
+        output = (out_bytes or b"").decode("utf-8", errors="ignore").strip()
+        return proc.returncode or 0, output
+
+    async def _get_mount_source(self, container_id: str, container_path: str, docker_env: Dict[str, str]) -> Optional[str]:
+        """Resolve host source path for a mounted container path."""
+        rc, out = await self._run_docker_cmd(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range .Mounts}}{{if eq .Destination \"" + container_path + "\"}}{{.Source}}{{end}}{{end}}",
+                container_id
+            ],
+            env=docker_env,
+            timeout=30
+        )
+        if rc != 0:
+            return None
+        source = (out or "").strip()
+        return source or None
+
+    async def _schedule_helper_recreate(
+        self,
+        docker_env: Dict[str, str],
+        current_container_id: str,
+        compose_file_in_container: str,
+        compose_service: str,
+        helper_image: str
+    ) -> Tuple[bool, str]:
+        """
+        Start a detached helper container to delete current container and run compose recreate.
+        This avoids requiring manual steps when current container still holds mapped ports.
+        """
+        compose_host_src = await self._get_mount_source(current_container_id, compose_file_in_container, docker_env)
+        if not compose_host_src:
+            return False, "无法定位宿主机 compose 文件挂载路径，无法自动切换。"
+
+        compose_dir = os.path.dirname(compose_host_src)
+        compose_name = os.path.basename(compose_host_src)
+        helper_name = f"bbot-updater-{int(asyncio.get_event_loop().time())}"
+        script = (
+            f"sleep 2; "
+            f"docker rm -f {current_container_id}; "
+            f"docker compose -f /work/{compose_name} up -d --pull always --force-recreate {compose_service}"
+        )
+        cmd = [
+            "docker", "run", "-d", "--rm",
+            "--name", helper_name,
+            "--entrypoint", "sh",
+            "-v", "/var/run/docker.sock:/var/run/docker.sock",
+            "-v", f"{compose_dir}:/work",
+            "-w", "/work",
+            helper_image,
+            "-c", script
+        ]
+        rc, out = await self._run_docker_cmd(cmd, env=docker_env, timeout=40)
+        if rc != 0:
+            return False, f"自动切换辅助容器启动失败: {out or 'unknown'}"
+        return True, f"已启动自动更新任务({helper_name})，将停止旧容器并重建 compose 服务。"
+
+    def _replace_compose_service_image(self, compose_file: str, service: str, image_ref: str) -> Tuple[bool, str]:
+        """Replace target service image in a compose file."""
+        try:
+            with open(compose_file, "r", encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except Exception as e:
+            return False, f"read compose failed: {e}"
+
+        out: List[str] = []
+        in_service = False
+        service_indent = ""
+        replaced = False
+        service_pat = re.compile(rf"^(\s*){re.escape(service)}\s*:\s*$")
+        image_pat = re.compile(r"^(\s*)image\s*:\s*(\S+)\s*$")
+        sibling_pat = re.compile(r"^(\s*)[A-Za-z0-9_.-]+\s*:\s*$")
+
+        for line in lines:
+            m_service = service_pat.match(line)
+            if m_service:
+                in_service = True
+                service_indent = m_service.group(1)
+                out.append(line)
+                continue
+
+            if in_service:
+                m_sibling = sibling_pat.match(line)
+                if m_sibling and len(m_sibling.group(1)) == len(service_indent):
+                    if not replaced:
+                        out.append(f"{service_indent}  image: {image_ref}")
+                        replaced = True
+                    in_service = False
+
+                if in_service:
+                    m_img = image_pat.match(line)
+                    if m_img and len(m_img.group(1)) >= len(service_indent) + 2 and not replaced:
+                        out.append(f"{m_img.group(1)}image: {image_ref}")
+                        replaced = True
+                        continue
+
+            out.append(line)
+
+        if in_service and not replaced:
+            out.append(f"{service_indent}  image: {image_ref}")
+            replaced = True
+
+        if not replaced:
+            return False, "service block not found"
+        try:
+            with open(compose_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(out) + "\n")
+            return True, ""
+        except Exception as e:
+            return False, f"write compose failed: {e}"
+
+    async def _restart_updated_container(self, docker_env: Dict[str, str], target_image: Optional[str] = None) -> Tuple[bool, str]:
+        """
+        Non-compose mode policy:
+        only pull image, do not auto recreate/restart container.
+        """
+        image_hint = target_image or "241793/b-bot:latest"
+        return False, (
+            f"Image pulled ({image_hint}). Auto recreate is disabled.\n"
+            "Please run manually:\n"
+            "1) docker rm -f <old_container>\n"
+            f"2) docker run ... {image_hint}"
+        )
+
+    async def _auto_update_from_docker_hub(self) -> str:
+        """Check remote v.json version and update container image."""
+        current_version = str(getattr(config, "version_number", "") or "").strip()
+        current_ver_tuple = self._parse_version_tuple(current_version)
+        if not current_ver_tuple:
+            return f"当前版本号格式无效: {current_version}"
+
+        docker_proxy = str(await self.bucket_get("system", "docker_proxy", "") or "").strip()
+        pull_prefix = self._normalize_registry_prefix(docker_proxy)
+        latest_tag, latest_ver_tuple, err = await self._get_latest_version_from_remote()
+        if err:
+            return f"{err}；更新失败"
+        if not latest_ver_tuple:
+            return "未获取到有效的远程版本号"
+        if latest_ver_tuple <= current_ver_tuple:
+            return f"当前已是最新版本（当前: {current_version}，远程: {latest_tag}）"
+
+        docker_env = os.environ.copy()
+        selected_tag = latest_tag
+        image_ref = f"241793/b-bot:{selected_tag}"
+        if pull_prefix:
+            image_ref = f"{pull_prefix}/{image_ref}"
+        rc, out = await self._run_docker_cmd(["docker", "pull", image_ref], env=docker_env, timeout=300)
+        if rc != 0:
+            selected_tag = "latest"
+            image_ref = "241793/b-bot:latest"
+            if pull_prefix:
+                image_ref = f"{pull_prefix}/{image_ref}"
+            rc, out = await self._run_docker_cmd(["docker", "pull", image_ref], env=docker_env, timeout=300)
+            if rc != 0:
+                return f"发现新版本 {latest_tag}，但拉取失败: {out or 'unknown'}"
+
+        target_image = image_ref
+        ok, restart_msg = await self._restart_updated_container(docker_env, target_image=target_image)
+        if ok:
+            return f"发现新版本 {latest_tag}（当前 {current_version}），已完成更新流程。{restart_msg}"
+        return f"发现新版本 {latest_tag}，镜像已拉取。{restart_msg}"
+
+    def _collect_machine_fingerprint(self) -> str:
+        """Collect stable host fingerprint fields."""
+        parts = []
+        try:
+            parts.append(platform.system())
+            parts.append(platform.release())
+            parts.append(platform.version())
+            parts.append(platform.machine())
+            parts.append(str(os.cpu_count() or ""))
+            parts.append(str(uuid.getnode()))
+        except Exception:
+            pass
+
+        for fp in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+            try:
+                if os.path.exists(fp):
+                    with open(fp, "r", encoding="utf-8", errors="ignore") as f:
+                        val = f.read().strip()
+                        if val:
+                            parts.append(val)
+                            break
+            except Exception:
+                pass
+
+        if os.name == "nt":
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography")
+                guid, _ = winreg.QueryValueEx(key, "MachineGuid")
+                if guid:
+                    parts.append(str(guid))
+            except Exception:
+                pass
+
+        return "|".join([str(x) for x in parts if str(x).strip()])
+
+    def _machine_seed_file(self) -> Path:
+        data_dir = os.getenv("DATA_DIR", "data")
+        return Path(data_dir) / ".machine_seed"
+
+    def _load_or_create_machine_seed(self) -> str:
+        """
+        Keep a persistent seed in data volume, so machine code stays stable
+        across container restarts/recreates.
+        """
+        env_seed = str(os.getenv("BBOT_MACHINE_SEED", "") or "").strip()
+        if env_seed:
+            return env_seed
+
+        seed_file = self._machine_seed_file()
+        try:
+            if seed_file.exists():
+                seed = seed_file.read_text(encoding="utf-8", errors="ignore").strip()
+                if seed:
+                    return seed
+        except Exception:
+            pass
+
+        raw = self._collect_machine_fingerprint()
+        if not raw:
+            raw = f"fallback-{platform.system()}-{uuid.getnode()}"
+        seed = hashlib.sha256(raw.encode("utf-8", errors="ignore")).hexdigest()
+
+        try:
+            seed_file.parent.mkdir(parents=True, exist_ok=True)
+            seed_file.write_text(seed, encoding="utf-8")
+        except Exception as e:
+            self.logger.warning(f"failed to persist machine seed: {e}")
+
+        return seed
+
+    async def get_machine_code(self, force_refresh: bool = False) -> str:
+        """
+        Get stable machine code.
+        Security note: bucket value is cache only, never source of truth.
+        """
+        seed = self._load_or_create_machine_seed()
+        digest = hashlib.sha256(seed.encode("utf-8", errors="ignore")).hexdigest().upper()
+        real_code = f"BBOT-{digest[:16]}-{digest[16:32]}"
+
+        # Keep a cached copy for display, but do not trust bucket data.
+        try:
+            cached = await self.bucket_get("system", "machine_code", "")
+            if force_refresh or str(cached or "") != real_code:
+                await self.bucket_set("system", "machine_code", real_code)
+                if cached and str(cached) != real_code:
+                    self.logger.warning("machine_code in bucket was modified; restored real machine code")
+        except Exception:
+            pass
+
+        return real_code
+
+    async def _get_coze_config(self) -> Dict[str, Any]:
+        cfg = await self.bucket_get("adapter_config", "coze", {})
+        if not isinstance(cfg, dict):
+            cfg = {}
+        return {
+            "base_url": str(cfg.get("base_url", "https://api.coze.cn")).strip().rstrip("/"),
+            "pat": str(cfg.get("pat", "")).strip(),
+            "bot_id": str(cfg.get("bot_id", "")).strip(),
+            "workflow_id": str(cfg.get("workflow_id", "")).strip(),
+            "timeout_sec": int(cfg.get("timeout_sec", 30) or 30),
+            "retry_times": int(cfg.get("retry_times", 2) or 2),
+            "use_workflow": bool(cfg.get("use_workflow", False)),
+            "fallback_to_rules": bool(cfg.get("fallback_to_rules", True))
+        }
+
+    async def _coze_get_or_create_conversation(self, cfg: Dict[str, Any], user_key: str) -> str:
+        conversations = await self.bucket_get("system", "coze_conversations", {})
+        if not isinstance(conversations, dict):
+            conversations = {}
+        old = conversations.get(user_key, {})
+        conv_id = str(old.get("conversation_id", "")).strip() if isinstance(old, dict) else ""
+        if conv_id:
+            return conv_id
+
+        url = f"{cfg['base_url']}/v1/conversation/create"
+        headers = {
+            "Authorization": f"Bearer {cfg['pat']}",
+            "Content-Type": "application/json",
+        }
+        payload = {"bot_id": cfg["bot_id"], "user_id": user_key}
+        session = await self.get_http_session()
+        async with session.post(url, headers=headers, json=payload, timeout=cfg["timeout_sec"]) as resp:
+            data = await resp.json(content_type=None)
+            if resp.status >= 400 or int(data.get("code", -1)) != 0:
+                raise RuntimeError(f"创建会话失败: http={resp.status}, code={data.get('code')}, msg={data.get('msg')}")
+            conv_id = str((data.get("data") or {}).get("id") or "")
+            if not conv_id:
+                raise RuntimeError("创建会话失败: conversation_id 为空")
+
+        conversations[user_key] = {"conversation_id": conv_id, "updated_at": datetime.utcnow().isoformat()}
+        await self.bucket_set("system", "coze_conversations", conversations)
+        return conv_id
+
+    async def _coze_chat(self, message: Dict[str, Any], prompt: str) -> str:
+        cfg = await self._get_coze_config()
+        if not cfg["pat"] or not cfg["bot_id"]:
+            raise RuntimeError("请先在适配器配置中填写 Coze PAT 和 Bot ID")
+
+        user_id = str(message.get("user_id", "unknown"))
+        group_id = str(message.get("group_id", "") or "").strip()
+        platform = str(message.get("platform", "unknown"))
+        user_key = f"{platform}:{user_id}:{group_id or 'private'}"
+
+        conversation_id = await self._coze_get_or_create_conversation(cfg, user_key)
+        headers = {
+            "Authorization": f"Bearer {cfg['pat']}",
+            "Content-Type": "application/json",
+        }
+
+        if cfg["use_workflow"] and cfg["workflow_id"]:
+            url = f"{cfg['base_url']}/v1/workflow/run"
+            payload = {
+                "workflow_id": cfg["workflow_id"],
+                "parameters": {
+                    "user_id": user_key,
+                    "conversation_id": conversation_id,
+                    "query": prompt,
+                }
+            }
+            session = await self.get_http_session()
+            async with session.post(url, headers=headers, json=payload, timeout=cfg["timeout_sec"]) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status >= 400 or int(data.get("code", -1)) != 0:
+                    raise RuntimeError(f"Workflow 调用失败: http={resp.status}, code={data.get('code')}, msg={data.get('msg')}")
+                out = (data.get("data") or {}).get("output")
+                if isinstance(out, str) and out.strip():
+                    return out.strip()
+                return json.dumps(out, ensure_ascii=False) if out is not None else "Workflow 无输出"
+
+        url = f"{cfg['base_url']}/v3/chat"
+        payload = {
+            "bot_id": cfg["bot_id"],
+            "conversation_id": conversation_id,
+            "user_id": user_key,
+            "stream": False,
+            "auto_save_history": True,
+            "additional_messages": [{
+                "role": "user",
+                "content": prompt,
+                "content_type": "text"
+            }]
+        }
+        session = await self.get_http_session()
+        async with session.post(url, headers=headers, json=payload, timeout=cfg["timeout_sec"]) as resp:
+            data = await resp.json(content_type=None)
+            if resp.status >= 400 or int(data.get("code", -1)) != 0:
+                raise RuntimeError(f"Chat 调用失败: http={resp.status}, code={data.get('code')}, msg={data.get('msg')}")
+            chat_data = data.get("data") or {}
+            reply = str(chat_data.get("content") or "").strip()
+            if reply:
+                return reply
+
+            chat_id = str(chat_data.get("id") or "")
+            if not chat_id:
+                return "Coze 返回成功，但未提供回复内容"
+
+        # Fallback: fetch messages list to get assistant output
+        list_url = f"{cfg['base_url']}/v1/conversation/message/list"
+        list_payload = {
+            "conversation_id": conversation_id,
+            "chat_id": chat_id,
+        }
+        async with session.post(list_url, headers=headers, json=list_payload, timeout=cfg["timeout_sec"]) as resp:
+            list_data = await resp.json(content_type=None)
+            if resp.status >= 400 or int(list_data.get("code", -1)) != 0:
+                raise RuntimeError(f"获取聊天结果失败: http={resp.status}, code={list_data.get('code')}, msg={list_data.get('msg')}")
+            msgs = (list_data.get("data") or [])
+            if isinstance(msgs, list):
+                for m in reversed(msgs):
+                    if str(m.get("role", "")).lower() == "assistant":
+                        content = str(m.get("content", "")).strip()
+                        if content:
+                            return content
+            return "Coze 返回成功，但没有可读回复"
+#------------奥特曼
+#这是插件配置规则
+#[version: 1.0.0]版本号
+#[class: 图片类]从工具类、查询类、娱乐类、餐饮类、影音类、生活类、图片类、游戏类等中选择，也可自定义
+#[platform: qq,qb,wx,tb,tg,web,wxmp]适用的平台 qq/qb/wx/tb/tg/wxmp/web之间选择，中间用英文逗号隔开
+#[description: 关于插件的描述] 使用方法尽量写具体
+#[rule: 规则] 匹配规则，多个规则时向下依次写多个
+#[admin: true] 是否为管理员指令
+#[priority: 0] 优先级，数字越大表示优先级越高
+#[imType:qq,wx] 白名单,只在qq,wx生效
+#==========================配参数据（最下面）===============================
+#[param: {"required":true,"key":"bucket.key","bool":true,"placeholder":"xxx","name":"xxx","desc":"xxx"}]
+
+
+
+
+#import requests
+import platform
+import sys
+import os
+import json
+import requests
+import http.client
+from urllib.parse import quote
+import asyncio
+
+def pip_install(module:str):
+    #判断是否安装了模块
+    try:
+        __import__(module)
+    except ImportError:
+        #没有安装模块，安装模块
+        success=os.system("pip3 install "+module)
+        #判断是否安装成功
+        if success!=0:
+            raise Exception("安装模块失败")
+        else:
+            #安装成功，重新导入模块
+            __import__(module)
+        
+def printf(message):
+    print(message, "(line:", sys._getframe().f_lineno, ")")
+    sys.stdout.flush()
+
+# 根据操作系统选择请求方式
+def get_service_response(path:str,data):
+    compat = _atm_framework_dispatch(path, data)
+    if compat is not None:
+        return compat
+    if platform.system() == 'Windows':
+        return get_http_service_response(path,data)
+    else:
+        return get_sock_service_response(path,data)
+
+# 本地服务的请求，返回请求的数据
+def get_http_service_response(path:str,data):
+    url = "http://127.0.0.1:9999/sock"+path
+    response = requests.post(
+        url=url, 
+        json=data,
+        headers={"Content-Type":"application/json"},
+    )
+    #printf("网络请求响应"+response.text)
+    if response.status_code==200:
+        # 将json字符串转换为json对象
+        json_obj=json.loads(response.text)
+        return json_obj
+    else:
+        raise Exception("请求失败")
+    
+# 本地服务的请求，返回请求的数据
+def get_sock_service_response(path: str, data):
+    socket_path = '/tmp/autMan.sock'
+    request_path = '/sock' + path
+
+    conn = http.client.HTTPConnection('localhost')
+    conn.sock = http.client.socket.socket(http.client.socket.AF_UNIX, http.client.socket.SOCK_STREAM)
+    conn.sock.connect(socket_path)
+
+    body = json.dumps(data)
+
+    conn.request('POST', request_path, body)
+    response = conn.getresponse()
+    response_data = response.read().decode()
+    conn.close()
+
+    if response.status == 200:
+        return json.loads(response_data)
+    else:
+        raise Exception(f"请求失败: {response.reason}")
+
+
+
+# 获取发送者ID,整型
+def getSenderID():
+    try:
+        if len(sys.argv) > 1:
+            return sys.argv[1]
+    except Exception:
+        pass
+    ctx = _atm_get_context()
+    if ctx and isinstance(ctx.get("message"), dict):
+        msg = ctx.get("message") or {}
+        uid = msg.get("user_id")
+        if uid is not None:
+            return str(uid)
+    return ""
+
+
+#获取接入的im类型
+def getActiveImtypes():
+    path="/getActiveImtypes"
+    data={}
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 推送消息
+def push(imType,groupCode,userID,title,content):
+    path="/push"
+    data={
+        "imType":imType,
+        "groupCode":groupCode,
+        "userID":userID,
+        "title":title,
+        "content":content
+    }
+    get_service_response(path,data)
+
+
+
+
+# 获取数据库数据
+def get(key:str):
+    path="/get"
+    data={
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 设置数据库数据
+def set(key,value):
+    path="/set"
+    data={
+        "key":key,
+        "value":value,
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+
+# 删除数据库数据
+def delete(key):
+    path="/delete"
+    data={
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+# 获取指定数据库指定key的值
+def bucketGet(bucket,key):
+    path="/bucketGet"
+    data={
+        "bucket":bucket,
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 设置指定数据库指定key的值
+def bucketSet(bucket,key,value):
+    path="/bucketSet"
+    data={
+        "bucket":bucket,
+        "key":key,
+        "value":value
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+# 删除指定数据库指定key的值
+def bucketDel(bucket,key):
+    path="/bucketDel"
+    data={
+        "bucket":bucket,
+        "key":key
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+# 获取指定数据库的所有值为value的keys
+def bucketKeys(bucket,value):
+    path="/bucketKeys"
+    data={
+        "bucket":bucket,
+        "value":value
+    }
+    response=get_service_response(path,data)
+    # 使用逗号分隔字符串
+    return response["data"]
+
+# 获取指定数据库的所有的key集合
+def bucketAllKeys(bucket):
+    path="/bucketAllKeys"
+    data={
+        "bucket":bucket
+    }
+    response=get_service_response(path,data)
+    # 使用逗号分隔字符串
+    return response["data"]
+
+# 获取指定数据库的所有的key-value集合
+def bucketAll(bucket):
+    path="/bucketAll"
+    data={
+        "bucket":bucket,
+    }
+    response=get_service_response(path,data)
+    return response["data"]
+
+# 通知管理员
+def notifyMasters(content,imtypes:list=[]):
+    path="/notifyMasters"
+    data={
+        "content":content,
+        "imtypes":imtypes,
+    }
+    response=get_service_response(path,data)
+    return response["code"]==200
+
+
+
+class Sender:
+    # 类的构造函数
+    def __init__(self, senderID:int):
+        self.senderID = senderID
+        
+        # 获取指定数据库指定key的值
+    def bucketGet(self,bucket,key):
+        path="/bucketGet"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "key":key
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 设置指定数据库指定key的值
+    def bucketSet(self,bucket,key,value):
+        path="/bucketSet"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "key":key,
+            "value":value
+        }
+        response=get_service_response(path,data)
+        return response["code"]==200
+
+    # 删除指定数据库指定key的值
+    def bucketDel(self,bucket,key):
+        path="/bucketDel"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "key":key
+        }
+        response=get_service_response(path,data)
+        return response["code"]==200
+
+    # 获取指定数据库的所有值为value的keys
+    def bucketKeys(self,bucket,value):
+        path="/bucketKeys"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+            "value":value
+        }
+        response=get_service_response(path,data)
+        # 使用逗号分隔字符串
+        return response["data"]
+
+    # 获取指定数据库的所有的key集合
+    def bucketAllKeys(self,bucket):
+        path="/bucketAllKeys"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket
+        }
+        response=get_service_response(path,data)
+        # 使用逗号分隔字符串
+        return response["data"]
+    
+    def bucketAll(self,bucket):
+        path="/bucketAll"
+        data={
+            "senderid":self.senderID,
+            "bucket":bucket,
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+      
+    # 设置关键词继续向下匹配其它优先级低的插件
+    def response(self,data):
+        path="/response"
+        body={
+            "senderid":self.senderID,
+            "data":data
+        }
+        response=get_service_response(path,body)
+        return response["data"]
+
+    # 获取发送者渠道
+    def getImtype(self):
+        path="/getImtype"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取发送者ID
+    def getUserID(self):
+        path="/getUserID"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        # 去掉字符串两端的引号
+        return response["data"]
+    
+    # 获取发送者昵称
+    def getUserName(self):
+        path="/getUserName"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 获取发送者头像
+    def getUserAvatarUrl(self):
+        path="/getUserAvatarUrl"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 获取发送者群号，返回值是整型
+    def getChatID(self):
+        path="/getChatID"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取发送者群名称
+    def getChatName(self):
+        path="/getChatName"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 是否管理员
+    def isAdmin(self):
+        path="/isAdmin"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 是否ai
+    def getMessage(self):
+        path="/getMessage"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取消息ID
+    def getMessageID(self):
+        path="/getMessageID"
+        data={
+            "senderid":self.senderID
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 获取历史消息ids
+    def recallMessage(self,messageid):
+        path="/recallMessage"
+        data={
+            "senderid":self.senderID,
+            "messageid":messageid
+        }
+        get_service_response(path,data)
+
+
+
+    # 回复文本消息，回复的发送消息的id，list类型
+    def reply(self,text:str):
+        path="/sendText"
+        data={
+            "senderid":self.senderID,
+            "text":text,
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 回复图片消息
+    def replyImage(self,imageUrl):
+        path="/sendImage"
+        data={
+            "senderid":self.senderID,
+            "imageurl":imageUrl
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 回复语音消息
+    def replyVoice(self,voiceUrl):
+        path="/sendVoice"
+        data={
+            "senderid":self.senderID,
+            "voiceurl":voiceUrl
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+    # 回复视频消息
+    def replyVideo(self,videoUrl):
+        path="/sendVideo"
+        data={
+            "senderid":self.senderID,
+            "videourl":videoUrl
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    #回复最终结果
+    def listen(self,timeout:int):
+        path="/listen"
+        data={
+            "senderid":self.senderID,
+            "timeout":timeout
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+    
+    # 等待用户输入,timeout为超时时间，单位为毫秒,recallDuration为撤回用户输入的延迟时间，单位为毫秒，0是不撤回，forGroup为bool值true或false，是否接收群聊所有成员的输入
+    def input(self,timeout:int,recallDuration:int,forGroup:bool):
+        path="/input"
+        data={
+            "senderid":self.senderID,
+            "timeout":timeout,
+            "recallDuration":recallDuration,
+            "forGroup":forGroup,
+        }
+        response=get_service_response(path,data)
+        return response["data"]
+
+
+
+    # 添加好友至群聊
+
+
+
+def _atm_get_context():
+    try:
+        from middleware.atm_context import get_current_context
+        return get_current_context()
+    except Exception:
+        return None
+
+
+def _atm_response(code=200, data=None, message="success"):
+    return {"code": code, "data": data, "message": message}
+
+
+def _atm_run_async(middleware, coro, default=None, timeout=30):
+    try:
+        loop = getattr(middleware, "main_loop", None)
+        if loop and loop.is_running():
+            try:
+                running = asyncio.get_running_loop()
+                if running == loop:
+                    return default
+            except RuntimeError:
+                pass
+            fut = asyncio.run_coroutine_threadsafe(coro, loop)
+            return fut.result(timeout=timeout)
+        return asyncio.run(coro)
+    except Exception:
+        return default
+
+
+def _atm_framework_dispatch(path, data):
+    ctx = _atm_get_context()
+    if not ctx:
+        return None
+
+    middleware = ctx.get("middleware")
+    message = ctx.get("message") or {}
+    if not middleware:
+        return None
+
+    p = str(path or "")
+    payload = data or {}
+
+    async def _atm_call_ok(coro):
+        await coro
+        return True
+
+    try:
+        if p == "/getActiveImtypes":
+            adapter_status = middleware.bucket_manager.get_sync("system", "adapter_status", {})
+            active = [name for name in middleware.adapters.keys() if adapter_status.get(name, True)]
+            return _atm_response(data=active)
+
+        if p == "/push":
+            im_type = str(payload.get("imType", "") or "qq")
+            group_code = payload.get("groupCode")
+            user_id = payload.get("userID")
+            title = str(payload.get("title", "") or "")
+            content = str(payload.get("content", "") or "")
+            full = f"{title}\n{content}".strip()
+            if group_code not in (None, "", 0, "0"):
+                _atm_run_async(middleware, middleware.push_to_group(im_type, str(group_code), full), default=False)
+                return _atm_response(data=True)
+            if user_id not in (None, "", 0, "0"):
+                _atm_run_async(middleware, middleware.push_to_user(im_type, str(user_id), full), default=False)
+                return _atm_response(data=True)
+            return _atm_response(400, False, "missing target")
+
+        if p == "/get":
+            key = str(payload.get("key", "") or "")
+            return _atm_response(data=middleware.bucket_manager.get_sync("atm_global", key))
+        if p == "/set":
+            key = str(payload.get("key", "") or "")
+            value = payload.get("value")
+            ok = bool(_atm_run_async(middleware, _atm_call_ok(middleware.bucket_set("atm_global", key, value)), default=False))
+            return _atm_response(data=ok)
+        if p == "/delete":
+            key = str(payload.get("key", "") or "")
+            ok = bool(_atm_run_async(middleware, _atm_call_ok(middleware.bucket_delete("atm_global", key)), default=False))
+            return _atm_response(data=ok)
+
+        if p == "/bucketGet":
+            bucket = str(payload.get("bucket", "") or "")
+            key = str(payload.get("key", "") or "")
+            sender = str(message.get("user_id", "") or "")
+            scoped_key = f"{sender}:{key}" if sender else key
+            val = middleware.bucket_manager.get_sync(bucket, scoped_key, None)
+            if val is None:
+                val = middleware.bucket_manager.get_sync(bucket, key, None)
+            return _atm_response(data=val)
+        if p == "/bucketSet":
+            bucket = str(payload.get("bucket", "") or "")
+            key = str(payload.get("key", "") or "")
+            value = payload.get("value")
+            sender = str(message.get("user_id", "") or "")
+            scoped_key = f"{sender}:{key}" if sender else key
+            ok = bool(_atm_run_async(middleware, _atm_call_ok(middleware.bucket_set(bucket, scoped_key, value)), default=False))
+            return _atm_response(data=ok)
+        if p == "/bucketDel":
+            bucket = str(payload.get("bucket", "") or "")
+            key = str(payload.get("key", "") or "")
+            sender = str(message.get("user_id", "") or "")
+            scoped_key = f"{sender}:{key}" if sender else key
+            ok = bool(_atm_run_async(middleware, _atm_call_ok(middleware.bucket_delete(bucket, scoped_key)), default=False))
+            return _atm_response(data=ok)
+        if p == "/bucketAll":
+            bucket = str(payload.get("bucket", "") or "")
+            data_all = _atm_run_async(middleware, middleware.bucket_manager.get_all(bucket), default={}) or {}
+            return _atm_response(data=data_all)
+        if p == "/bucketAllKeys":
+            bucket = str(payload.get("bucket", "") or "")
+            keys = _atm_run_async(middleware, middleware.bucket_keys(bucket), default=[]) or []
+            return _atm_response(data=keys)
+        if p == "/bucketKeys":
+            bucket = str(payload.get("bucket", "") or "")
+            val = payload.get("value")
+            all_map = _atm_run_async(middleware, middleware.bucket_manager.get_all(bucket), default={}) or {}
+            matched = [k for k, v in all_map.items() if v == val]
+            return _atm_response(data=matched)
+
+        if p == "/notifyMasters":
+            content = str(payload.get("content", "") or "")
+            imtypes = payload.get("imtypes") or []
+            platforms = ",".join([str(x) for x in imtypes if str(x).strip()]) if isinstance(imtypes, list) and imtypes else "qq"
+            _atm_run_async(middleware, middleware.notify_admin(content, platforms=platforms), default=None)
+            return _atm_response(data=True)
+
+        if p == "/getImtype":
+            return _atm_response(data=str(message.get("platform", "") or ""))
+        if p == "/getUserID":
+            return _atm_response(data=str(message.get("user_id", "") or ""))
+        if p == "/getUserName":
+            return _atm_response(data=str(message.get("nickname", "") or message.get("user_name", "") or message.get("user_id", "") or ""))
+        if p == "/getUserAvatarUrl":
+            return _atm_response(data=str(message.get("avatar", "") or message.get("avatar_url", "") or ""))
+        if p == "/getChatID":
+            gid = message.get("group_id")
+            return _atm_response(data=str(gid if gid not in (None, "", 0, "0") else message.get("user_id", "")))
+        if p == "/getChatName":
+            return _atm_response(data=str(message.get("group_name", "") or ""))
+        if p == "/isAdmin":
+            uid = message.get("user_id")
+            is_admin = _atm_run_async(middleware, middleware.is_admin(uid), default=False)
+            return _atm_response(data=bool(is_admin))
+        if p == "/getMessage":
+            return _atm_response(data=str(message.get("content", "") or ""))
+        if p == "/getMessageID":
+            return _atm_response(data=message.get("message_id"))
+        if p == "/recallMessage":
+            msgid = payload.get("messageid")
+            recall_payload = {"platform": message.get("platform"), "message_id": msgid}
+            ok = _atm_run_async(middleware, middleware.recall_message(recall_payload), default=False)
+            return _atm_response(data=bool(ok))
+        if p in ("/sendText", "/response"):
+            text = str(payload.get("text", "") or payload.get("data", "") or "")
+            _atm_run_async(middleware, middleware.send_response(message, {"content": text}), default=None)
+            return _atm_response(data=True)
+        if p == "/sendImage":
+            image_url = str(payload.get("imageurl", "") or "")
+            _atm_run_async(middleware, middleware.reply_with_image(message, image_url), default=None)
+            return _atm_response(data=True)
+        if p == "/sendVoice":
+            voice_url = str(payload.get("voiceurl", "") or "")
+            cq = f"[CQ:record,file={voice_url}]"
+            _atm_run_async(middleware, middleware.send_response(message, {"content": cq}), default=None)
+            return _atm_response(data=True)
+        if p == "/sendVideo":
+            video_url = str(payload.get("videourl", "") or "")
+            _atm_run_async(middleware, middleware.reply_with_video(message, video_url), default=None)
+            return _atm_response(data=True)
+        if p in ("/listen", "/input"):
+            timeout = int(payload.get("timeout", 60000) or 60000)
+            content = _atm_run_async(middleware, middleware.wait_for_input(message, timeout), default=None)
+            return _atm_response(data=content)
+    except Exception as e:
+        try:
+            middleware.logger.error(f"atm compat dispatch failed path={p}: {e}")
+        except Exception:
+            pass
+        return _atm_response(500, None, str(e))
+
+    return _atm_response(501, None, "not supported")
