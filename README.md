@@ -13,11 +13,10 @@ win电脑需要有python环境
 
 ntqq的llonebot插件配置ws:ws://127.0.0.1:port/ws/qq
 
-对接qq教程：<a href="https://bchome.dpdns.org/index.php/archives/157/" target="_blank">llonebot(win/docker)</a>
+对接qq教程：llonebot(win/docker)
 
-docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target="_blank">docker</a>
+docker教程：docker
 
-```docker
 docker run -d \
   --name bbot \
   --restart unless-stopped \
@@ -27,51 +26,77 @@ docker run -d \
   -v 你的docker文件夹地址\data:/app/data \
   -v 你的docker文件夹地址\plugins:/app/plugins \
   241793/b-bot:latest
-```
-## 功能特性
 
-- **多协议接入器**: 支持WebSocket等协议，可对接QQ等平台
-- **插件化架构**: 支持Python插件的动态加载、卸载和管理
-- **规则引擎**: 基于正则表达式、关键词的消息匹配和处理
-- **持久化存储**: 支持数据桶存储机制
-- **中间件系统**: 提供统一的消息处理接口
-- **可视化面板**: 完整的Web管理界面
+功能特性
 
-## 快速开始
 
-### 1. 启动框架
 
-```bash
+
+
+多协议接入器: 支持WebSocket等协议，可对接QQ等平台
+
+
+
+插件化架构: 支持Python插件的动态加载、卸载和管理
+
+
+
+规则引擎: 基于正则表达式、关键词的消息匹配和处理
+
+
+
+持久化存储: 支持数据桶存储机制
+
+
+
+中间件系统: 提供统一的消息处理接口
+
+
+
+可视化面板: 完整的Web管理界面
+
+快速开始
+
+1. 启动框架
+
 B-BOT.exe一键运行
-```
 
-### 2. 访问Web管理界面
+2. 访问Web管理界面
 
-打开浏览器访问 `http://127.0.0.1:5000`
+打开浏览器访问 http://127.0.0.1:5000
 
-### 3. WebSocket连接
+3. WebSocket连接
+
 .env文件可以更改端口
-客户端可以连接到 `ws://127.0.0.1:8888` 发送和接收消息
+客户端可以连接到 ws://127.0.0.1:8888 发送和接收消息
 ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
 
-### 适配器管理
+适配器管理
 
-### 插件管理
+插件管理
 
-### 规则管理
-- 查看系统规则
-- 添加新规则（支持正则表达式、关键词、完全匹配）
+规则管理
 
-### 数据桶管理
 
-### 日志管理
 
-## WebSocket协议
 
-### 消息格式
+
+查看系统规则
+
+
+
+添加新规则（支持正则表达式、关键词、完全匹配）
+
+数据桶管理
+
+日志管理
+
+WebSocket协议
+
+消息格式
 
 发送消息格式：
-```json
+
 {
   "id": "消息唯一ID",
   "type": "message",
@@ -81,29 +106,50 @@ ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
   "timestamp": "时间戳",
   "raw_message": "原始消息"
 }
-```
 
 接收消息格式：
-```json
+
 {
   "content": "回复内容",
   "to_user_id": "目标用户ID"
 }
-```
 
-## 插件开发
+插件开发
 
-### 开发规范
-- 中间遵循异步运行，插件调用时需使用await异步操作
-- 所有插件必须遵循插件开发规范
-- 插件文件名应使用下划线命名法
-- 规则名称应具有唯一性
-- 代码应包含适当的错误处理
-#### 基本插件结构
-- 一些参数：platform: qq(ws对接的渠道)、web_ui(web端)
+开发规范
 
-##### 插件编写方法一
-```python
+
+
+
+
+中间遵循异步运行，插件调用时需使用await异步操作
+
+
+
+所有插件必须遵循插件开发规范
+
+
+
+插件文件名应使用下划线命名法
+
+
+
+规则名称应具有唯一性
+
+
+
+代码应包含适当的错误处理
+
+基本插件结构
+
+
+
+
+
+一些参数：platform: qq(ws对接的渠道)、web_ui(web端)
+
+插件编写方法一
+
 """
 插件名称
 插件描述
@@ -144,9 +190,9 @@ rules = [
     }
 ]
 
-```
-##### 插件编写方法二
-```python
+
+插件编写方法二
+
 """
 插件名称
 插件描述
@@ -173,42 +219,94 @@ def register(middleware):
     middleware.register_message_handler(handle_message)
     print(f"示例插件 '{__description__}' 已加载并注册了消息处理器。")
 
-```
-## 配置
+
+配置
 
 win框架支持以下环境变量配置：
 
-- `qq_HOST`: 反向WebSocket服务器主机，默认 `0.0.0.0`
-- `qq_PORT`: 反向WebSocket服务器端口，默认 `8888/ws/qq` (用于发送回复给QQ等平台)
-- `WEB_UI_HOST`: Web界面主机，默认 `0.0.0.0`
-- `WEB_UI_PORT`: Web界面端口，默认 `5000`
 
-## 特殊说明
 
-1. **插件热加载**: 支持动态启用/禁用、在线编辑和实时保存
-2. **WebSocket服务器**: 提供WebSocket服务供客户端连接
-3. **规则优先级**: 数值越大优先级越高
-4. **日志轮转**: 自动管理日志文件大小和数量
-5. **QQ集成**: 支持与QQ平台集成，通过双WebSocket架构实现消息收发
-   - 一些功能: 自动同意好友请求、自动撤回、群管、点赞
-6. **反向WebSocket**: 用于将处理结果发送回消息平台
-7. **外部容器对接青龙面板**: 支持青龙面板对接，规则运行，插件异步调用内置青龙函数
 
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# 插件开发指南
 
-本文档旨在帮助开发者了解如何在 `B-BOT` 中创建和开发插件。插件是扩展机器人功能的核心。
+qq_HOST: 反向WebSocket服务器主机，默认 0.0.0.0
 
-## 1. 插件基础
+
+
+qq_PORT: 反向WebSocket服务器端口，默认 8888/ws/qq (用于发送回复给QQ等平台)
+
+
+
+WEB_UI_HOST: Web界面主机，默认 0.0.0.0
+
+
+
+WEB_UI_PORT: Web界面端口，默认 5000
+
+特殊说明
+
+
+
+
+
+插件热加载: 支持动态启用/禁用、在线编辑和实时保存
+
+
+
+WebSocket服务器: 提供WebSocket服务供客户端连接
+
+
+
+规则优先级: 数值越大优先级越高
+
+
+
+日志轮转: 自动管理日志文件大小和数量
+
+
+
+QQ集成: 支持与QQ平台集成，通过双WebSocket架构实现消息收发
+
+
+
+
+
+一些功能: 自动同意好友请求、自动撤回、群管、点赞
+
+
+
+反向WebSocket: 用于将处理结果发送回消息平台
+
+
+
+外部容器对接青龙面板: 支持青龙面板对接，规则运行，插件异步调用内置青龙函数
+
+
+
+插件开发指南
+
+本文档旨在帮助开发者了解如何在 B-BOT 中创建和开发插件。插件是扩展机器人功能的核心。
+
+1. 插件基础
+
 插件本质上是一个遵循特定规范的 Python 模块，框架会自动加载并运行它。
 
-- **位置**: 所有插件都应放置在 `plugins/` 目录下。
-- **入口**: 框架会寻找并执行插件模块中的 `register` 函数来初始化插件。
 
-### 关于计划任务怎么判断是否内部命令（两种方式）,搭配计划任务功能食用
+
+
+
+位置: 所有插件都应放置在 plugins/ 目录下。
+
+
+
+入口: 框架会寻找并执行插件模块中的 register 函数来初始化插件。
+
+关于计划任务怎么判断是否内部命令（两种方式）,搭配计划任务功能食用
+
 1、message.get("internal_source") = True(内部来源)
 2、message.get("platform") = internal(内部来源)
-### 图片和视频（CQ码）
+
+图片和视频（CQ码）
+
 image: 类型base64数据,url
 video,record: url
 [CQ:image,file=base64://{image}]/[CQ:image,file={image}]
@@ -220,7 +318,6 @@ record
 
 一个最简单的插件结构如下：
 
-```python
 # /plugins/my_awesome_plugin.py
 __description__ = "插件描述"
 __version__ = "1.0.0"
@@ -251,23 +348,31 @@ def register(middleware):
     middleware.register_message_handler(my_message_handler)
     middleware.logger.info("示例插件 'my_awesome_plugin' 已加载并注册了消息处理器。")#日志打印,print看不见
 
-```
 
-## 2. 如何使用 Middleware 功能
+2. 如何使用 Middleware 功能
 
-`Middleware` 对象是插件与框架交互的唯一桥梁。当框架调用你的 `register` 函数时，会将一个 `Middleware` 实例作为参数传递给你。你应该将其保存下来，以便在插件的其他地方使用。
+Middleware 对象是插件与框架交互的唯一桥梁。当框架调用你的 register 函数时，会将一个 Middleware 实例作为参数传递给你。你应该将其保存下来，以便在插件的其他地方使用。
 
-虽然在上面的简单示例中我们只在 `register` 函数里用了一次 `middleware`，但更复杂的插件可能需要在多个地方调用它。你可以将它保存在一个类或者全局变量中。
+虽然在上面的简单示例中我们只在 register 函数里用了一次 middleware，但更复杂的插件可能需要在多个地方调用它。你可以将它保存在一个类或者全局变量中。
 
-### 2.1 接收和响应消息
+2.1 接收和响应消息
 
 最常见的插件功能是响应用户的消息。
 
-- **注册处理器**: 使用 `middleware.register_message_handler(your_handler_function)` 来监听所有消息。
-- **处理消息**: 你的处理器函数会收到一个 `message` 字典，它包含了消息的所有信息（如内容、发送者ID、群组ID等）。
-- **快速响应**: 如果你的处理器函数返回一个包含 `content` 键的字典，框架会自动将该 `content` 作为回复发送到消息的来源地（私聊或群聊）。这是最简单的响应方式。
 
-```python
+
+
+
+注册处理器: 使用 middleware.register_message_handler(your_handler_function) 来监听所有消息。
+
+
+
+处理消息: 你的处理器函数会收到一个 message 字典，它包含了消息的所有信息（如内容、发送者ID、群组ID等）。
+
+
+
+快速响应: 如果你的处理器函数返回一个包含 content 键的字典，框架会自动将该 content 作为回复发送到消息的来源地（私聊或群聊）。这是最简单的响应方式。
+
 # /plugins/echo_plugin.py
 
 
@@ -277,22 +382,41 @@ async def echo_handler(message: dict):
 
 def register(middleware):
     middleware.register_message_handler(echo_handler)
-```
 
-### 2.2 主动发送消息
+2.2 主动发送消息
 
 除了被动响应，插件也可以主动向任何地方发送消息。
 
-- **函数**: `await middleware.send_message(platform, target_id, content,msg=None)`
-- **参数**:
-    - `platform`: 平台名称 (例如: `'qq'`, `'websocket'`)。
-    - `target_id`: 目标ID。对于私聊，是用户ID；对于群聊，是群ID。
-    - `content`: 你想发送的消息内容。
-    - `msg`: 原始消息对象, 用于获取发送者信息。
 
-**示例：一个定时提醒插件**
 
-```python
+
+
+函数: await middleware.send_message(platform, target_id, content,msg=None)
+
+
+
+参数:
+
+
+
+
+
+platform: 平台名称 (例如: 'qq', 'websocket')。
+
+
+
+target_id: 目标ID。对于私聊，是用户ID；对于群聊，是群ID。
+
+
+
+content: 你想发送的消息内容。
+
+
+
+msg: 原始消息对象, 用于获取发送者信息。
+
+示例：一个定时提醒插件
+
 # /plugins/reminder_plugin.py
 import asyncio
 
@@ -330,22 +454,41 @@ class ReminderPlugin:
 def register(middleware):
     plugin = ReminderPlugin(middleware)
     middleware.register_message_handler(plugin.add_reminder_handler)
-```
 
-### 2.3 使用持久化存储 (Bucket)
+2.3 使用持久化存储 (Bucket)
 
-插件经常需要存储数据，例如用户配置、游戏得分等。`Middleware` 提供了基于 "Bucket" 的简单键值存储。
+插件经常需要存储数据，例如用户配置、游戏得分等。Middleware 提供了基于 "Bucket" 的简单键值存储。
 
-- **概念**: Bucket 是一个数据容器，类似于一个字典。每个插件可以拥有一个或多个独立的 Bucket。
-- **函数**:
-    - `await middleware.bucket_set(bucket_name, key, value)`: 保存数据。
-    - `await middleware.bucket_get(bucket_name, key, default=None)`: 读取数据。
-    - `await middleware.bucket_delete(bucket_name, key)`: 删除一个键。
-    - `await middleware.bucket_keys(bucket_name)`: 获取所有键。
 
-**示例：一个计数器插件,异步写法**
 
-```python
+
+
+概念: Bucket 是一个数据容器，类似于一个字典。每个插件可以拥有一个或多个独立的 Bucket。
+
+
+
+函数:
+
+
+
+
+
+await middleware.bucket_set(bucket_name, key, value): 保存数据。
+
+
+
+await middleware.bucket_get(bucket_name, key, default=None): 读取数据。
+
+
+
+await middleware.bucket_delete(bucket_name, key): 删除一个键。
+
+
+
+await middleware.bucket_keys(bucket_name): 获取所有键。
+
+示例：一个计数器插件,异步写法
+
 # /plugins/counter_plugin.py
 
 
@@ -368,17 +511,19 @@ def register(middleware):
 
     middleware.register_message_handler(counter_handler)
     print("计数器插件已加载。")
-```
 
-### 2.4 管理员权限
+2.4 管理员权限
 
-你可以使用 `middleware` 来检查一个用户是否是管理员，从而创建只有管理员才能使用的命令。
+你可以使用 middleware 来检查一个用户是否是管理员，从而创建只有管理员才能使用的命令。
 
-- `middleware.is_admin(user_id)`: 返回 `True` 或 `False`。
 
-**示例：一个只能由管理员使用的插件**
 
-```python
+
+
+middleware.is_admin(user_id): 返回 True 或 False。
+
+示例：一个只能由管理员使用的插件
+
 __description__ = "插件描述"
 __version__ = "1.0.0"
 __author__ = "开发者"
@@ -401,23 +546,41 @@ def register(middleware):
     global middleware
     middleware.register_message_handler(admin_command_handler)
     print("管理员插件已加载。")
-```
 
-## 3. 总结
+3. 总结
 
-通过 `middleware` 对象，插件可以实现强大而丰富的功能：
-1.  **创建 `register` 函数**作为插件入口。
-2.  在 `register` 函数中获取 `Middleware` 实例。
-3.  调用 `middleware.register_message_handler()` 来**监听消息**。
-4.  在消息处理器中，通过返回字典来**快速响应**，或使用 `middleware.send_message()` **主动发送**。
-5.  使用 `middleware.bucket_*` 函数来**存储和读取数据**。
-6.  使用 `middleware.is_admin()` 来实现**权限控制**。
+通过 middleware 对象，插件可以实现强大而丰富的功能：
+
+
+
+
+
+创建 register 函数作为插件入口。
+
+
+
+在 register 函数中获取 Middleware 实例。
+
+
+
+调用 middleware.register_message_handler() 来监听消息。
+
+
+
+在消息处理器中，通过返回字典来快速响应，或使用 middleware.send_message() 主动发送。
+
+
+
+使用 middleware.bucket_* 函数来存储和读取数据。
+
+
+
+使用 middleware.is_admin() 来实现权限控制。
 
 遵循以上模式，你就可以开始构建你自己的插件了！
 
-## middleware中间件基础功能函数
+middleware中间件基础功能函数
 
-```python
     async def wait_for_input(self, msg: Dict[str, Any], timeout: int) -> Optional[Dict[str, Any]]:
         """
         在当前会话（群聊或私聊）中等待用户的下一次输入。
@@ -863,13 +1026,11 @@ def register(middleware):
         pfunc = partial(func, *args, **kwargs)
         return await loop.run_in_executor(None, pfunc)
 
-```
 
-# 青龙调用,调用函数
+青龙调用,调用函数
 
-## 方法一
+方法一
 
-```python
 #插件填写下方路径,例子：
 from containers.qinglong_client import QinglongClient
 import asyncio
@@ -945,13 +1106,9 @@ def enable_envs(self, ids: list):
         return response.json()
     except requests.RequestException as e:
         raise Exception(f"启用环境变量失败: {e}")
-```
 
+方法二
 
-
-## 方法二
-
-```python
 #插件填写下方路径
 from containers.qinglong import QinglongContainer
 containers_config = await middleware.bucket_get("system", "containers")
@@ -1013,15 +1170,22 @@ async def delete_env(self, env_ids: List[Any]) -> bool:
     """
     result = await self._request("DELETE", "envs", json=env_ids)
     return result is not None
-```
-# 新插件开发规范（B-BOT）- 适配奥特曼插件写法
 
-1) 两种插件模式
+新插件开发规范（B-BOT）- 适配奥特曼插件写法
+
+
+
+
+
+两种插件模式
 b-bot（推荐）：使用 middleware/middleware.py 提供的异步能力,也就是上面的方法。
 ATM兼容：使用 import middleware + Sender 这套同步风格（兼容奥特曼插件）。
-2) b-bot 插件规范（推荐）
+
+
+
+b-bot 插件规范（推荐）
 文件头元数据：
-```
+
 __author__
 __description__
 __version__
@@ -1031,14 +1195,18 @@ async handler 里不要直接 requests、time.sleep。
 需要阻塞操作时：
 await asyncio.to_thread(...) 或 await middleware.run_sync(...)
 延时用 await asyncio.sleep(...)
-```
-4) ATM 兼容插件规范（已适配）
+
+
+
+
+
+ATM 兼容插件规范（已适配）
 可识别插件头：
-```
+
 #[version: 1.0]
 #[param: {"required":true,"key":"","bool":false,"placeholder":"","name":"例子","desc":""}]
 version/class/platform/description/rule/admin/priority/imType/param
-```
+
 入口支持：
 
 全局：get/set/delete/bucket*/notifyMasters/push/getActiveImtypes
@@ -1051,7 +1219,7 @@ Sender：getUserID/getMessage/reply/replyImage/replyVoice/replyVideo/listen/inpu
 任何输入做空值判断，避免 None.split() 这类错误,获取桶数据不存在为None,基本获取不到都是None。
 5) 最小模板（b-bot）
 方法一(如果有rules=[]的情况)、
-```
+
 __author__ = "your_name"
 __description__ = "示例插件"
 __version__ = "1.0.0"
@@ -1102,9 +1270,13 @@ if __name__ == "__main__":
         loop = asyncio.get_event_loop()
         loop.run_until_complete(hello_handler(message,middleware))
 
-```
-6) 最小模板（ATM兼容）
-```
+
+
+
+
+
+最小模板（ATM兼容）
+
 # [version: 1.0.0]
 # [platform: qq,web]
 # [description: ATM兼容示例]
@@ -1124,9 +1296,9 @@ if __name__ == "__main__":
             sender.reply(f"ok {r.status_code}")
         except Exception as e:
             sender.reply(f"运行错误: {e}")
-```
-## 奥特曼中间件
-```
+
+奥特曼中间件
+
 
 def pip_install(module:str):
     #判断是否安装了模块
@@ -1571,4 +1743,1383 @@ class Sender:
         response=get_service_response(path,data)
         return response["data"]
 
-```
+
+
+
+AI大脑功能文档（配置、使用、调用说明）
+
+本节为 AI大脑 的完整使用说明，包含：
+
+
+
+
+
+配置中心
+
+
+
+技能中心
+
+
+
+知识中心
+
+
+
+工作流中心
+
+
+
+AI定时任务
+
+
+
+调用路径与常见问题
+
+
+
+入口：Web 管理后台左侧菜单 AI大脑。
+
+1. 功能总览
+
+AI大脑提供两类能力：
+
+
+
+
+
+在线对话能力：插件或聊天入口触发 /api/ai/chat。
+
+
+
+自动化能力：工作流编排 + 定时任务推送（到指定适配器/用户/群）。
+
+核心模块：
+
+
+
+
+
+模型配置与切换（支持多模型保存、启用/禁用、应用）
+
+
+
+MCP 工具接入
+
+
+
+技能导入与启用
+
+
+
+知识库检索
+
+
+
+工作流可视化编排（LLM / MCP / 知识 / 条件）
+
+
+
+AI 定时任务（固定 Prompt + 可选工作流 + 定向推送）
+
+
+
+2. 配置中心
+
+2.1 基础开关
+
+
+
+
+
+启用 AI 大脑：总开关。
+
+
+
+启用 MCP：允许调用 MCP 工具。
+
+
+
+启用技能：启用技能提示词/技能集合。
+
+
+
+启用知识库：启用知识检索增强。
+
+2.2 模型参数
+
+主要字段：
+
+
+
+
+
+provider
+
+
+
+base_url
+
+
+
+api_key
+
+
+
+model
+
+
+
+temperature
+
+
+
+max_tokens
+
+
+
+system_prompt
+
+支持“模型配置保存”：
+
+
+
+
+
+可保存多个模型。
+
+
+
+每个模型可 启用/禁用。
+
+
+
+可 应用 指定模型作为当前生效模型。
+
+
+
+支持累计 Token 展示。
+
+2.3 模型生效逻辑
+
+
+
+
+
+运行时默认使用“已保存且启用”的模型。
+
+
+
+优先使用当前 active 模型。
+
+
+
+若当前模型失败（429/5xx/超时/网络错误）会自动 failover 到其他启用模型。
+
+
+
+主模型恢复后可自动切回（探测机制）。
+
+
+
+3. 技能中心
+
+支持能力：
+
+
+
+
+
+填写技能列表（& 或换行分隔）
+
+
+
+从 URL / GitHub 仓库导入技能
+
+
+
+技能市场加载与一键导入
+
+
+
+删除已导入技能
+
+常见用法：
+
+
+
+
+
+先导入技能（或从市场导入）。
+
+
+
+在“技能列表”填入需要启用的技能 ID。
+
+
+
+点击“保存技能配置”或“保存并应用”。
+
+
+
+4. 知识中心
+
+支持能力：
+
+
+
+
+
+文本批量导入（自动切片）
+
+
+
+文件上传入库（txt/md/pdf 等）
+
+
+
+检索预览（TopK）
+
+
+
+单条知识增删改
+
+
+
+启用/禁用知识条目
+
+检索建议：
+
+
+
+
+
+关键词尽量短而准。
+
+
+
+TopK 可从 3~8 调整。
+
+
+
+可先在“检索预览”确认召回效果，再用于实际问答。
+
+
+
+5. 工作流中心
+
+5.1 节点类型（MVP）
+
+
+
+
+
+knowledge：知识检索
+
+
+
+mcp：MCP 工具调用
+
+
+
+llm：模型调用
+
+
+
+condition：条件分支
+
+5.2 可视化编辑能力
+
+
+
+
+
+大画布（缩放、平移、适配视图）
+
+
+
+节点自由拖动
+
+
+
+拖线连边（next / true_next / false_next）
+
+
+
+连线右键菜单（删除/重连）
+
+
+
+左侧节点库、右侧属性面板
+
+
+
+JSON 与可视化双向同步
+
+5.3 变量模板
+
+工作流中可使用：
+
+
+
+
+
+{{input}}
+
+
+
+{{last}}
+
+
+
+{{vars.xxx}}
+
+5.4 运行接口
+
+
+
+
+
+列表：GET /api/ai/workflows
+
+
+
+保存：POST /api/ai/workflows
+
+
+
+详情：GET /api/ai/workflows/<id>
+
+
+
+启停：POST /api/ai/workflows/<id>/toggle
+
+
+
+删除：DELETE /api/ai/workflows/<id>
+
+
+
+运行：POST /api/ai/workflows/run
+
+运行入参示例：
+
+{
+  "id": "daily_report_wf",
+  "input": "生成今日简报",
+  "vars": {"topic": "市场"}
+}
+
+
+
+6. AI定时任务（独立二级菜单）
+
+
+
+入口：AI大脑 -> AI定时任务
+
+用于定时自动执行 AI，并推送到指定适配器目标。
+
+6.1 配置字段
+
+
+
+
+
+名称：任务名
+
+
+
+Cron：5段 cron 表达式
+
+
+
+适配器：例如 tgbot / web_ui / 其他已接入适配器
+
+
+
+目标类型：user 私聊 / group 群聊
+
+
+
+目标ID：用户ID或群ID
+
+
+
+工作流ID（可选）
+
+
+
+固定 Prompt
+
+
+
+vars(JSON，可选)
+
+规则：
+
+
+
+
+
+工作流ID 与 固定 Prompt 至少填一个。
+
+
+
+若填了 工作流ID，优先按工作流执行。
+
+
+
+若未填工作流，则直接调用当前启用模型执行 prompt。
+
+6.2 批量功能
+
+已支持：
+
+
+
+
+
+批量启用
+
+
+
+批量禁用
+
+6.3 任务接口
+
+
+
+
+
+列表：GET /api/ai/schedule/tasks
+
+
+
+保存：POST /api/ai/schedule/tasks
+
+
+
+启停：POST /api/ai/schedule/tasks/<id>/toggle
+
+
+
+删除：DELETE /api/ai/schedule/tasks/<id>
+
+
+
+立即运行：POST /api/ai/schedule/tasks/<id>/run
+
+
+
+7. 调用链路说明
+
+7.1 在线 AI 对话链路
+
+
+
+
+
+收到消息
+
+
+
+进入 AI 配置（模型/技能/MCP/知识）
+
+
+
+调用模型（必要时 failover）
+
+
+
+输出回复到当前会话
+
+7.2 AI 定时任务链路
+
+
+
+
+
+APScheduler 到点触发 run_ai_scheduled_job(task_id)
+
+
+
+读取任务配置（prompt/workflow/adapter/target）
+
+
+
+执行工作流或单次 LLM
+
+
+
+调用 middleware 推送：
+
+
+
+
+
+群：push_to_group(adapter, group_id, content)
+
+
+
+私聊：push_to_user(adapter, user_id, content)
+
+
+
+8. 常见问题
+
+8.1 模型测试通过，但实际调用失败
+
+请检查：
+
+
+
+
+
+是否已“保存并启用”模型
+
+
+
+active 模型是否是你预期的那个
+
+
+
+base_url 是否与模型协议匹配（OpenAI 兼容）
+
+8.2 工作流运行无输出
+
+请检查：
+
+
+
+
+
+是否配置了 output_var / next
+
+
+
+条件分支是否指向存在的节点 ID
+
+
+
+最后节点是否将结果写入 last（默认会）
+
+8.3 定时任务到了不推送
+
+请检查：
+
+
+
+
+
+任务是否启用
+
+
+
+适配器是否启用
+
+
+
+target_id 是否正确
+
+
+
+该适配器是否支持对应推送方法（群/私聊）
+
+
+
+9. 版本建议
+
+若升级后出现旧配置异常，建议按顺序排查：
+
+
+
+
+
+配置中心重新保存一次 AI 配置
+
+
+
+检查模型列表启用状态
+
+
+
+检查工作流节点 ID 唯一性
+
+
+
+检查 AI 定时任务的 adapter/target_type/target_id
+
+
+
+工作流中心进阶说明（字段、变量、填写方法、完整示例）
+
+
+
+本节是“工作流中心”的详细操作手册，可直接按此配置。
+
+1. 工作流执行模型
+
+工作流按“节点”顺序执行，节点可以通过 next 或条件分支跳转。
+
+每次执行都会有一个运行时上下文（context），核心字段：
+
+
+
+
+
+input：本次输入文本（手动运行时输入框内容，或定时任务里的固定 prompt）。
+
+
+
+vars：外部变量对象（运行时可传 JSON）。
+
+
+
+last：上一个节点输出（系统自动维护）。
+
+
+
+last_error：最近错误信息（失败时有值）。
+
+你在节点配置中可以用模板变量：
+
+
+
+
+
+{{input}}
+
+
+
+{{last}}
+
+
+
+{{vars.xxx}}
+
+
+
+以及你自己定义的输出变量，如 {{kb}}、{{answer}}
+
+
+
+2. 节点通用字段
+
+每个节点都建议填写以下字段：
+
+
+
+
+
+id：节点唯一标识（必须唯一，建议英文/数字/下划线）。
+
+
+
+type：节点类型（knowledge / llm / mcp / condition）。
+
+
+
+output_var：该节点输出保存到哪个变量名（例如 kb、answer、tool_result）。
+
+
+
+next：下一个节点 ID（非条件节点使用）。留空表示按顺序执行下一个。
+
+说明：
+
+
+
+
+
+如果你没写 output_var，系统通常会写到 last，但建议显式写，方便后续引用。
+
+
+
+next 指向不存在的节点会导致运行失败。
+
+
+
+3. 各节点详细填写说明
+
+3.1 knowledge 节点（知识检索）
+
+字段：
+
+
+
+
+
+query：检索词，支持模板（常用 {{input}}）。
+
+
+
+bucket：知识桶名，留空会用 AI 配置里的默认知识桶。
+
+
+
+top_k：返回条数。
+
+
+
+output_var：建议设为 kb。
+
+
+
+next：下一节点。
+
+输出结构（数组）：
+
+[
+  {"key": "k1", "content": "...", "score": 3},
+  {"key": "k2", "content": "...", "score": 2}
+]
+
+
+
+3.2 llm 节点（大模型调用）
+
+字段：
+
+
+
+
+
+prompt：用户提示词，支持模板变量。
+
+
+
+system_prompt：可选，覆盖全局系统提示。
+
+
+
+temperature：可选。
+
+
+
+max_tokens：可选。
+
+
+
+model_profile_id：可选，指定模型配置 ID；不填则用当前 active 模型。
+
+
+
+output_var：建议设为 answer 或语义化名字。
+
+
+
+next：下一节点。
+
+建议：
+
+
+
+
+
+把知识节点输出拼进 prompt，例如：知识: {{kb}}。
+
+
+
+输出一般是字符串。
+
+
+
+3.3 mcp 节点（工具调用）
+
+字段：
+
+
+
+
+
+server_url：MCP 服务地址（可留空，系统会选已启用 MCP 服务器中的第一个）。
+
+
+
+tool：工具名（必填）。
+
+
+
+args：JSON 对象参数，支持模板。
+
+
+
+headers：可选，JSON 对象。
+
+
+
+output_var：建议设为 tool_result。
+
+
+
+next：下一节点。
+
+args 示例：
+
+{"city": "{{vars.city}}", "date": "today"}
+
+
+
+3.4 condition 节点（条件判断）
+
+字段：
+
+
+
+
+
+expr：条件表达式（返回 true/false）。
+
+
+
+true_next：条件为真跳转节点。
+
+
+
+false_next：条件为假跳转节点。
+
+
+
+output_var：通常设为 passed。
+
+表达式可用变量：
+
+
+
+
+
+input, last, vars
+
+
+
+你之前节点保存的变量（例如 kb, answer）
+
+示例：
+
+
+
+
+
+kb and len(kb) > 0（注意：当前安全表达式不一定支持所有函数，最稳妥写法见下）
+
+
+
+推荐稳妥：kb != []
+
+
+
+推荐稳妥：vars.vip == True
+
+
+
+推荐稳妥：last != ""
+
+
+
+注意：条件表达式做了安全限制，不支持任意 Python 语法。
+
+
+
+4. 变量命名建议
+
+建议统一变量名，避免后续维护混乱：
+
+
+
+
+
+知识结果：kb
+
+
+
+工具输出：tool_result
+
+
+
+条件结果：passed
+
+
+
+最终答案：answer
+
+在后续节点引用时用 {{变量名}}，例如 {{kb}}。
+
+
+
+5. 画布操作建议
+
+
+
+
+
+大画布中先放“知识 -> 条件 -> LLM”主链。
+
+
+
+再补“异常/兜底”分支。
+
+
+
+每次改完点击“从可视化生成 JSON”确认结构。
+
+
+
+运行调试时先传最小输入，确认链路后再加复杂 vars。
+
+
+
+6. 可直接使用的完整示例
+
+场景：
+
+
+
+
+
+先查知识库。
+
+
+
+如果命中，基于知识回答。
+
+
+
+如果未命中，走兜底回答。
+
+可直接粘贴到“节点定义 JSON”：
+
+[
+  {
+    "id": "k1",
+    "type": "knowledge",
+    "query": "{{input}}",
+    "bucket": "ai_knowledge",
+    "top_k": 5,
+    "output_var": "kb",
+    "next": "c1"
+  },
+  {
+    "id": "c1",
+    "type": "condition",
+    "expr": "kb != []",
+    "output_var": "passed",
+    "true_next": "l1",
+    "false_next": "l2"
+  },
+  {
+    "id": "l1",
+    "type": "llm",
+    "system_prompt": "你是企业知识助手，请只基于给定知识回答。",
+    "prompt": "用户问题：{{input}}\n检索知识：{{kb}}\n请给出简洁准确答案。",
+    "temperature": 0.3,
+    "max_tokens": 800,
+    "output_var": "answer"
+  },
+  {
+    "id": "l2",
+    "type": "llm",
+    "system_prompt": "你是企业知识助手。",
+    "prompt": "用户问题：{{input}}\n当前知识库未命中，请给出通用建议，并提示可补充知识库。",
+    "temperature": 0.7,
+    "max_tokens": 800,
+    "output_var": "answer"
+  }
+]
+
+运行时示例：
+
+{
+  "id": "demo_kb_route",
+  "input": "今天值班流程是什么？",
+  "vars": {"scene": "ops"}
+}
+
+
+
+7. 常见错误对照
+
+
+
+
+
+报错：步骤配置了不存在的 next
+
+
+
+
+
+原因：next/true_next/false_next 指向了不存在 ID。
+
+
+
+报错：未找到可用模型配置
+
+
+
+
+
+原因：模型未保存启用，或 active 模型不可用。
+
+
+
+结果为空
+
+
+
+
+
+原因：最后节点未产生文本输出，或分支提前结束。
+
+
+
+条件节点不按预期跳转
+
+
+
+
+
+原因：表达式过于复杂，建议先改为简单表达式验证（如 kb != []）。
+
+
+
+工作流中心 3分钟上手（脚本式教程）
+
+
+
+目标：3分钟内做出“可运行、可分支、可复用”的 AI 工作流。
+
+第0步：进入页面（10秒）
+
+
+
+
+
+打开 Web 后台。
+
+
+
+左侧点击：AI大脑 -> 工作流中心。
+
+
+
+确认你已经在“可视化节点编排”区域。
+
+
+
+第1步：新建工作流（20秒）
+
+
+
+
+
+点击 新建。
+
+
+
+在“工作流名称”输入：demo_kb_answer。
+
+
+
+起始节点ID先留空（默认从第一个节点开始）。
+
+
+
+保持“启用”开关打开。
+
+
+
+第2步：添加节点（40秒）
+
+
+
+
+
+在左侧“节点库”依次点击：
+
+
+
+
+
++ 知识节点
+
+
+
++ 条件节点
+
+
+
++ LLM 节点
+
+
+
++ LLM 节点
+
+
+
+现在你有4个节点，建议按顺序重命名为：
+
+
+
+
+
+k1（知识）
+
+
+
+c1（条件）
+
+
+
+l1（命中知识时回答）
+
+
+
+l2（未命中时兜底）
+
+操作方式：
+
+
+
+
+
+点节点后，右侧“节点属性”面板可编辑 节点ID、类型、next 等。
+
+
+
+第3步：连线（30秒）
+
+用拖线手柄连接：
+
+
+
+
+
+从 k1 的 N 手柄拖到 c1。
+
+
+
+从 c1 的 T 手柄拖到 l1。
+
+
+
+从 c1 的 F 手柄拖到 l2。
+
+提示：
+
+
+
+
+
+连错了可以右键线条，选“删除连线”或“重新连线”。
+
+
+
+第4步：填写关键字段（50秒）
+
+
+
+
+
+选中 k1（knowledge）并填写：
+
+
+
+
+
+query: {{input}}
+
+
+
+output_var: kb
+
+
+
+top_k: 5
+
+
+
+
+
+选中 c1（condition）并填写：
+
+
+
+
+
+expr: kb != []
+
+
+
+output_var: passed
+
+
+
+
+
+选中 l1（llm）并填写：
+
+
+
+
+
+output_var: answer
+
+
+
+prompt:
+
+
+
+
+
+用户问题：{{input}}
+
+
+
+检索知识：{{kb}}
+
+
+
+请基于知识回答。
+
+
+
+
+
+选中 l2（llm）并填写：
+
+
+
+
+
+output_var: answer
+
+
+
+prompt:
+
+
+
+
+
+用户问题：{{input}}
+
+
+
+当前未命中知识，请给出通用建议，并提示可补充知识库。
+
+
+
+第5步：保存与运行（20秒）
+
+
+
+
+
+点击 保存工作流（顶部或编辑区按钮都可以）。
+
+
+
+在“运行调试 -> 输入”中填：今天值班流程是什么？
+
+
+
+点击 运行工作流。
+
+
+
+在“执行结果”中查看 trace/context/output。
+
+
+
+第6步：接入 AI定时任务（30秒）
+
+
+
+
+
+左侧切到：AI大脑 -> AI定时任务。
+
+
+
+新建任务填写：
+
+
+
+
+
+名称：daily_report
+
+
+
+Cron：0 9 * * *
+
+
+
+适配器：如 tgbot
+
+
+
+目标类型：group 或 user
+
+
+
+目标ID：对应群号/用户ID
+
+
+
+工作流ID：demo_kb_answer
+
+
+
+固定 Prompt：请生成今日简报
+
+
+
+
+
+保存后可点“运行”立即验证推送。
+
+
+
+快速排错（建议收藏）
+
+
+
+
+
+运行报 next 不存在：检查节点 ID 是否拼写一致。
+
+
+
+运行报 未找到可用模型：去配置中心确认有“已启用模型”。
+
+
+
+条件不生效：先把表达式改成 kb != [] 这类简单表达式验证。
+
+
+
+定时任务不推送：检查 适配器启用状态 + target_id + 任务是否启用。
+
+
+
+3分钟结果验收标准
+
+满足以下3条就算成功：
+
+
+
+
+
+工作流能在“运行调试”返回文本输出。
+
+
+
+能通过条件分支切到 l1 或 l2。
+
+
+
+AI定时任务可手动运行并成功推送到目标。
+
