@@ -15,6 +15,21 @@ ntqq的llonebot插件配置ws:ws://127.0.0.1:port/ws/qq
 
 对接qq教程：<a href="https://bchome.dpdns.org/index.php/archives/157/" target="_blank">llonebot(win/docker)</a>
 
+2026/3/26 docker镜像重构，1.0.6版本及以上旧命令已无法使用。首次启动会自动构建需要的文件，如果之前用过或已有数据，请自己备份data文件夹，避免可能被覆盖，启动后在把备份的覆盖进去
+新.
+1.0.6版本新增命令：更新、回退、重启等，新增AI大脑功能，加入养虾，BbotClaw
+```docker
+docker run -d \
+  --name bbot \
+  --restart unless-stopped \
+  -p 5000:5000 \
+  -p 8888:8888 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v 你的docker文件夹地址\data:/app/mount \
+  241793/b-bot:latest
+```
+
+旧
 docker教程：<a href="https://bchome.dpdns.org/index.php/archives/168/" target="_blank">docker</a>
 
 ```docker
