@@ -156,10 +156,9 @@ async def system_command_handler(message: dict):
         await middleware_instance.send_response(message, {"content": "机器人正在重启..."})
         await asyncio.sleep(1) # 留出时间发送消息
         
-        # 使用 os.execv 重启脚本
-        python = sys.executable
-        os.execv(python, [python] + sys.argv)
-        return None # 这行代码实际上不会执行
+        # 更稳的重启调度（execv + fallback）
+        await middleware_instance.schedule_restart(1.2, reason="system_commands_plugin")
+        return None
     if content == "myuid":
         return {"content": f"{user_id}"}
     # 4. 系统状态指令
