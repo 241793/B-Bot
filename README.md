@@ -6,7 +6,7 @@
 1.0.0 新增适配器
 
 win版已停更(0.0.9)
-配套安卓APP1.0.2：https://github.com/241793/B-Bot/releases/download/0.0.9/B-BOT1.0.2.apk
+配套安卓APP1.0.2：https://github.com/241793/B-Bot/releases/download/1.0.6/B-BOT1.0.3.apk
 
 一个类似奥特曼的机器人框架,通过python实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具。
 win电脑需要有python环境
@@ -1124,7 +1124,7 @@ if __name__ == "__main__":
 ```
 # [version: 1.0.0]
 # [platform: qq,web]
-# [description: ATM兼容示例]
+# [description: ATM兼容示例,如果是webhook的情况下，import middleware.atm_middleware as md，避免命名middleware]
 # [rule: ^atm\\s+ping$]
 # [admin: false]
 # [priority: 0]
@@ -1141,6 +1141,13 @@ if __name__ == "__main__":
             sender.reply(f"ok {r.status_code}")
         except Exception as e:
             sender.reply(f"运行错误: {e}")
+#或
+from middleware.atm_context import get_current_context
+if __name__ == "__main__":
+    ctx = get_current_context() or {}
+    sender = ctx.get("sender")
+    mw_obj = ctx.get("middleware")
+
 ```
 ## 奥特曼中间件
 ```
@@ -2128,3 +2135,134 @@ AI大脑提供两类能力：
 2. 能通过条件分支切到 `l1` 或 `l2`。
 3. AI定时任务可手动运行并成功推送到目标。
 
+---
+
+# 插件支持 Webhook（中文指南）
+
+B-BOT 已支持插件级 Webhook 路由，固定格式：
+
+```text
+/api/plugins/<plugin_name>/webhook
+```
+
+例如插件文件是 `plugins/my_webhook.py`，那么地址就是：
+
+```text
+/api/plugins/my_webhook/webhook
+```
+
+## 1. 插件函数约定
+
+插件中实现函数 `handle_webhook(...)` 即可被调用，建议签名如下：
+
+```python
+def handle_webhook(
+    data=None,
+    request_method="POST",
+    request_headers=None,
+    request_content_type="",
+    request_path="",
+    request_query=None,
+    raw_body="",
+):
+    ...
+```
+
+说明：
+- `data`: 框架自动解析后的请求数据（优先 JSON，其次 form，再次 query/raw）
+- `request_headers`: 请求头字典
+- `request_query`: URL query 参数字典
+- `raw_body`: 原始 body 文本
+
+## 2. 返回值规范
+
+`handle_webhook` 支持以下返回：
+- 返回 `("文本", 状态码)`，例如 `("success", 200)`
+- 返回 `(dict, 状态码)`，框架会自动转 JSON
+- 仅返回 `dict`，默认状态码 200
+- 返回 `None`，框架默认返回 `{"code":200,"msg":"ok"}`
+
+## 3. 最小可用示例（建议先用这个验证）
+
+```python
+# plugins/demo_webhook.py
+__description__ = "Webhook示例插件"
+__version__ = "1.0.0"
+__author__ = "B-BOT"
+
+
+def handle_webhook(
+    data=None,
+    request_method="POST",
+    request_headers=None,
+    request_content_type="",
+    request_path="",
+    request_query=None,
+    raw_body="",
+):
+    payload = dict(data or {})
+    return {
+        "success": True,
+        "message": "Webhook received",
+        "method": request_method,
+        "path": request_path,
+        "payload": payload,
+    }
+```
+
+测试：
+
+```bash
+curl -X POST "http://127.0.0.1:5000/api/plugins/demo_webhook/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{"event":"ping","ts":123}'
+```
+
+## 4. 签名校验示例（生产建议）
+
+```python
+# plugins/secure_webhook.py
+import hashlib
+
+__description__ = "带签名校验的Webhook示例"
+__version__ = "1.0.0"
+__author__ = "B-BOT"
+
+
+def _md5(s: str) -> str:
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+
+def handle_webhook(
+    data=None,
+    request_method="POST",
+    request_headers=None,
+    request_content_type="",
+    request_path="",
+    request_query=None,
+    raw_body="",
+):
+    payload = dict(data or {})
+
+    # 你的固定密钥（建议改为从 bucket 配置读取）
+    secret = "replace_with_your_secret"
+
+    received_sign = str(payload.get("sign", "") or "")
+    if not received_sign:
+        return {"success": False, "message": "missing sign"}, 400
+
+    # 示例签名规则：对 raw_body + secret 做 md5
+    expected_sign = _md5((raw_body or "") + secret)
+    if received_sign.lower() != expected_sign.lower():
+        return {"success": False, "message": "bad sign"}, 403
+
+    # 业务处理
+    return {"success": True, "message": "ok"}, 200
+```
+
+## 5. 实战建议
+
+- Webhook 插件尽量写成“幂等”：同一个回调重复到达时不重复执行关键动作。
+- 强烈建议做签名校验、时间戳校验、IP 白名单（至少做前两项）。
+- 外部请求必须加超时，避免阻塞。
+- 若要持久化数据，优先使用 `bucket` 存储。
