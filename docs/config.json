@@ -1,0 +1,406 @@
+{
+  "site": {
+    "name": "B-BOT",
+    "title": "下一代智能机器人框架",
+    "description": "多协议接入 · 插件化架构 · AI大脑 · 可视化面板",
+    "version": "1.0.7",
+    "github": "https://github.com/241793/B-Bot",
+    "androidApp": "https://github.com/241793/B-Bot/releases/download/1.0.6/B-BOT1.0.3.apk"
+  },
+  "hero": {
+    "badge": "v1.0.7 现已发布",
+    "title": ["下一代", "智能机器人框架 • BClaw"],
+    "subtitle": "多协议接入 · 插件化架构 · AI大脑 · 可视化面板",
+    "stats": [
+      {
+        "value": 10,
+        "label": "+ 协议支持"
+      },
+      {
+        "value": 100,
+        "label": "+ 插件生态"
+      },
+      {
+        "value": 99,
+        "label": "% 稳定运行"
+      }
+    ],
+    "actions": [
+      {
+        "text": "立即下载",
+        "url": "#download",
+        "icon": "fa-download",
+        "type": "primary"
+      },
+      {
+        "text": "开发文档",
+        "url": "#docs",
+        "icon": "fa-book",
+        "type": "secondary"
+      }
+    ]
+  },
+  "features": {
+    "title": "强大功能特性",
+    "description": "全方位的机器人解决方案，满足各种场景需求",
+    "filters": [
+      { "id": "all", "name": "全部" },
+      { "id": "core", "name": "核心功能" },
+      { "id": "protocol", "name": "协议接入" },
+      { "id": "ai", "name": "AI能力" },
+      { "id": "dev", "name": "开发支持" }
+    ],
+    "items": [
+      {
+        "id": 1,
+        "title": "多协议接入",
+        "description": "支持 WebSocket 等多种协议，可对接 QQ、Telegram、微信等平台",
+        "icon": "fa-network-wired",
+        "category": "protocol",
+        "tags": ["QQ", "TG", "微信"]
+      },
+      {
+        "id": 2,
+        "title": "插件化架构",
+        "description": "支持 Python 插件的动态加载、卸载和管理，热更新无需重启",
+        "icon": "fa-cubes",
+        "category": "core",
+        "tags": ["热加载", "动态管理"]
+      },
+      {
+        "id": 3,
+        "title": "规则引擎",
+        "description": "基于正则表达式、关键词的消息匹配和处理，支持优先级配置",
+        "icon": "fa-filter",
+        "category": "core",
+        "tags": ["正则", "关键词"]
+      },
+      {
+        "id": 4,
+        "title": "持久化存储",
+        "description": "Bucket 数据桶机制，轻松实现数据的存储、读取和管理",
+        "icon": "fa-database",
+        "category": "core",
+        "tags": ["Bucket", "键值存储"]
+      },
+      {
+        "id": 5,
+        "title": "AI大脑",
+        "description": "内置 AI 对话能力，支持多模型配置、技能导入、知识库检索",
+        "icon": "fa-brain",
+        "category": "ai",
+        "tags": ["LLM", "MCP", "RAG"]
+      },
+      {
+        "id": 6,
+        "title": "工作流编排",
+        "description": "可视化节点编排，支持知识检索、LLM调用、条件分支等节点",
+        "icon": "fa-project-diagram",
+        "category": "ai",
+        "tags": ["可视化", "自动化"]
+      },
+      {
+        "id": 7,
+        "title": "Webhook支持",
+        "description": "插件级 Webhook 路由，轻松实现外部系统集成",
+        "icon": "fa-code",
+        "category": "dev",
+        "tags": ["API", "集成"]
+      },
+      {
+        "id": 8,
+        "title": "可视化面板",
+        "description": "完整的 Web 管理界面，支持主题切换、手机端适配",
+        "icon": "fa-desktop",
+        "category": "core",
+        "tags": ["Web UI", "响应式"]
+      },
+      {
+        "id": 9,
+        "title": "青龙面板",
+        "description": "框架内置青龙面板的功能，无需对接青龙即可运行脚本。同时支持对接外部青龙容器",
+        "icon": "fa-shield-alt",
+        "category": "dev",
+        "tags": ["自动化", "脚本"]
+      }
+    ]
+  },
+  "plugins": {
+    "title": "丰富的插件生态",
+    "description": "两种开发模式，满足不同开发者需求",
+    "modes": [
+      {
+        "id": "bbot",
+        "name": "B-BOT 模式",
+        "badge": "推荐",
+        "description": "使用 middleware 提供的异步能力，性能更优",
+        "features": [
+          "异步消息处理",
+          "Bucket 数据存储",
+          "管理员权限控制",
+          "消息主动推送"
+        ],
+        "code": "async def handle(msg, mw):\n    content = msg.get(\"content\", \"\")\n    if content == \"你好\":\n        return {\"content\": \"你好！\"}\n\ndef register(middleware):\n    middleware.register_message_handler(handle)"
+      },
+      {
+        "id": "atm",
+        "name": "ATM 兼容模式",
+        "badge": "兼容",
+        "description": "兼容奥特曼插件写法，轻松迁移现有插件",
+        "features": [
+          "同步风格开发",
+          "Sender 类支持",
+          "全局函数调用",
+          "无缝迁移"
+        ],
+        "code": "import middleware\n\nif __name__ == \"__main__\":\n    sender = middleware.Sender(\n        middleware.getSenderID())\n    msg = sender.getMessage()\n    if msg.startswith(\"你好\"):\n        sender.reply(\"你好！\")"
+      }
+    ]
+  },
+  "ai": {
+    "title": "AI 大脑功能",
+    "description": "智能化升级，让机器人更懂你",
+    "features": [
+      {
+        "title": "配置中心",
+        "description": "多模型配置管理，支持 OpenAI 兼容接口，自动故障转移",
+        "icon": "fa-cogs"
+      },
+      {
+        "title": "技能中心",
+        "description": "技能导入与管理，支持从 URL、GitHub 仓库导入技能",
+        "icon": "fa-magic"
+      },
+      {
+        "title": "知识中心",
+        "description": "RAG 知识库检索，支持文本、PDF 等文件导入",
+        "icon": "fa-book"
+      },
+      {
+        "title": "工作流中心",
+        "description": "可视化节点编排，支持 LLM、MCP、条件分支等节点",
+        "icon": "fa-sitemap"
+      },
+      {
+        "title": "定时任务",
+        "description": "AI 定时任务推送，支持 Cron 表达式配置",
+        "icon": "fa-clock"
+      },
+      {
+        "title": "MCP 工具",
+        "description": "支持 MCP 协议工具调用，扩展 AI 能力边界",
+        "icon": "fa-tools"
+      }
+    ]
+  },
+  "docs": {
+    "title": "开发文档",
+    "description": "快速上手，轻松开发",
+    "navigation": [
+      {
+        "id": "quickstart",
+        "name": "快速开始",
+        "icon": "fa-rocket"
+      },
+      {
+        "id": "plugin-dev",
+        "name": "插件开发",
+        "icon": "fa-plug"
+      },
+      {
+        "id": "middleware",
+        "name": "中间件 API",
+        "icon": "fa-layer-group"
+      },
+      {
+        "id": "ai-config",
+        "name": "AI 配置",
+        "icon": "fa-brain"
+      },
+      {
+        "id": "workflow",
+        "name": "工作流",
+        "icon": "fa-project-diagram"
+      },
+      {
+        "id": "webhook",
+        "name": "Webhook",
+        "icon": "fa-webhook"
+      }
+    ],
+    "sections": {
+      "quickstart": {
+        "title": "快速开始",
+        "content": [
+          {
+            "type": "h4",
+            "text": "Docker 部署（推荐）"
+          },
+          {
+            "type": "code",
+            "language": "bash",
+            "content": "docker run -d \\\n  --name bbot \\\n  --restart unless-stopped \\\n  -p 5000:5000 \\\n  -p 8888:8888 \\\n  -v /var/run/docker.sock:/var/run/docker.sock \\\n  -v /your/data/path:/app/mount \\\n  241793/b-bot:latest"
+          },
+          {
+            "type": "h4",
+            "text": "访问面板"
+          },
+          {
+            "type": "p",
+            "text": "部署完成后，打开浏览器访问 <code>http://localhost:5000</code>"
+          },
+          {
+            "type": "h4",
+            "text": "配置 QQ 对接"
+          },
+          {
+            "type": "p",
+            "text": "在 NTQQ 的 LLOneBot 插件中配置 WebSocket："
+          },
+          {
+            "type": "code",
+            "language": "",
+            "content": "ws://127.0.0.1:8888/ws/qq"
+          }
+        ]
+      },
+      "plugin-dev": {
+        "title": "插件开发",
+        "content": [
+          {
+            "type": "h4",
+            "text": "最小插件模板"
+          },
+          {
+            "type": "code",
+            "language": "python",
+            "content": "\"\"\"\n示例插件\n这是一个示例插件\n\"\"\"\n\n__description__ = \"示例插件\"\n__version__ = \"1.0.0\"\n__author__ = \"开发者\"\n__imType__ = \"qq\"\n__admin__ = False\n\nasync def handle_message(msg, middleware):\n    content = msg.get(\"content\", \"\")\n    if content == \"你好\":\n        return {\"content\": \"你好！我是 B-BOT\"}\n\ndef register(middleware):\n    middleware.register_message_handler(handle_message)"
+          }
+        ]
+      },
+      "middleware": {
+        "title": "中间件 API",
+        "content": [
+          {
+            "type": "h4",
+            "text": "中间件功能"
+          },
+          {
+            "type": "p",
+            "text": "中间件提供了丰富的 API 接口，用于插件开发和功能扩展。"
+          }
+        ]
+      },
+      "ai-config": {
+        "title": "AI 配置",
+        "content": [
+          {
+            "type": "h4",
+            "text": "AI 模型配置"
+          },
+          {
+            "type": "p",
+            "text": "支持多模型配置、技能导入、知识库管理等功能。"
+          }
+        ]
+      },
+      "workflow": {
+        "title": "工作流",
+        "content": [
+          {
+            "type": "h4",
+            "text": "工作流编排"
+          },
+          {
+            "type": "p",
+            "text": "可视化节点编排，支持知识检索、LLM调用、条件分支等节点。"
+          }
+        ]
+      },
+      "webhook": {
+        "title": "Webhook",
+        "content": [
+          {
+            "type": "h4",
+            "text": "具体文档"
+          },
+          {
+            "type": "p",
+            "text": "https://github.com/241793/B-Bot/blob/main/README.md"
+          }
+        ]
+      }
+    }
+  },
+  "download": {
+    "title": "立即开始",
+    "description": "选择适合你的部署方式",
+    "options": [
+      {
+        "id": "docker",
+        "name": "Docker 部署",
+        "description": "推荐方式，一键部署，自动更新",
+        "version": "最新版本: v1.0.6",
+        "icon": "fa-docker",
+        "button": {
+          "text": "查看部署指令",
+          "url": "docker",
+          "type": "primary"
+        }
+      },
+      {
+        "id": "windows",
+        "name": "Windows 版本",
+        "description": "一键运行，无需配置环境",
+        "version": "最新版本: v0.0.9（已停更）",
+        "icon": "fa-windows",
+        "button": {
+          "text": "下载（旧版）",
+          "url": "https://github.com/241793/B-Bot/releases",
+          "type": "secondary"
+        }
+      },
+      {
+        "id": "android",
+        "name": "Android APP",
+        "description": "配套手机端应用",
+        "version": "最新版本: v1.0.3",
+        "icon": "fa-android",
+        "button": {
+          "text": "下载 APK",
+          "url": "https://github.com/241793/B-Bot/releases/download/1.0.6/B-BOT1.0.3.apk",
+          "type": "secondary"
+        }
+      }
+    ]
+  },
+  "footer": {
+    "sections": [
+      {
+        "title": "产品",
+        "links": [
+          { "name": "功能特性", "url": "#features" },
+          { "name": "插件生态", "url": "#plugins" },
+          { "name": "AI大脑", "url": "#ai-brain" }
+        ]
+      },
+      {
+        "title": "开发",
+        "links": [
+          { "name": "开发文档", "url": "#docs" },
+          { "name": "API 参考", "url": "#" },
+          { "name": "示例代码", "url": "#" }
+        ]
+      },
+      {
+        "title": "社区",
+        "links": [
+          { "name": "GitHub", "url": "https://github.com/241793/B-Bot" },
+          { "name": "Blog", "url": "https://bchome.dpdns.org" },
+          { "name": "更新日志", "url": "#" }
+        ]
+      }
+    ],
+    "copyright": "© 2026 B-BOT. All rights reserved."
+  }
+}

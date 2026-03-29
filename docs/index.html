@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B-BOT - 下一代智能机器人框架</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <span class="logo-icon"><i class="fas fa-robot"></i></span>
+                <span class="logo-text">B-BOT</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#home" class="active">首页</a></li>
+                <li><a href="#features">功能特性</a></li>
+                <li><a href="#plugins">插件生态</a></li>
+                <li><a href="#ai-brain">AI大脑</a></li>
+                <li><a href="#docs">开发文档</a></li>
+                <li><a href="#download">下载</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button class="theme-toggle" id="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="mobile-menu-btn" id="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 英雄区域 -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="badge-pulse"></span>
+                <span>v1.0.6 现已发布</span>
+            </div>
+            <h1 class="hero-title">
+                <span class="title-line">下一代</span>
+                <span class="title-line highlight">智能机器人框架</span>
+            </h1>
+            <p class="hero-subtitle">
+                多协议接入 · 插件化架构 · AI大脑 · 可视化面板
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number" data-count="10">0</span>
+                    <span class="stat-label">+ 协议支持</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" data-count="100">0</span>
+                    <span class="stat-label">+ 插件生态</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" data-count="99">0</span>
+                    <span class="stat-label">% 稳定运行</span>
+                </div>
+            </div>
+            <div class="hero-actions">
+                <a href="#download" class="btn btn-primary">
+                    <i class="fas fa-download"></i>
+                    立即下载
+                </a>
+                <a href="#docs" class="btn btn-secondary">
+                    <i class="fas fa-book"></i>
+                    开发文档
+                </a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="robot-container">
+                <div class="robot-core">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="orbit orbit-1"></div>
+                <div class="orbit orbit-2"></div>
+                <div class="orbit orbit-3"></div>
+                <div class="floating-icons">
+                    <span class="float-icon"><i class="fab fa-qq"></i></span>
+                    <span class="float-icon"><i class="fab fa-telegram"></i></span>
+                    <span class="float-icon"><i class="fab fa-weixin"></i></span>
+                    <span class="float-icon"><i class="fas fa-plug"></i></span>
+                    <span class="float-icon"><i class="fas fa-brain"></i></span>
+                    <span class="float-icon"><i class="fas fa-code"></i></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 功能特性区域 -->
+    <section id="features" class="features">
+        <div class="section-header">
+            <span class="section-tag">FEATURES</span>
+            <h2 class="section-title">强大功能特性</h2>
+            <p class="section-desc">全方位的机器人解决方案，满足各种场景需求</p>
+        </div>
+        
+        <!-- 分类筛选 -->
+        <div class="filter-tabs">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="core">核心功能</button>
+            <button class="filter-btn" data-filter="protocol">协议接入</button>
+            <button class="filter-btn" data-filter="ai">AI能力</button>
+            <button class="filter-btn" data-filter="dev">开发支持</button>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card" data-category="protocol">
+                <div class="feature-icon">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <h3>多协议接入</h3>
+                <p>支持 WebSocket 等多种协议，可对接 QQ、Telegram、微信等平台</p>
+                <div class="feature-tags">
+                    <span class="tag">QQ</span>
+                    <span class="tag">TG</span>
+                    <span class="tag">微信</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="core">
+                <div class="feature-icon">
+                    <i class="fas fa-cubes"></i>
+                </div>
+                <h3>插件化架构</h3>
+                <p>支持 Python 插件的动态加载、卸载和管理，热更新无需重启</p>
+                <div class="feature-tags">
+                    <span class="tag">热加载</span>
+                    <span class="tag">动态管理</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="core">
+                <div class="feature-icon">
+                    <i class="fas fa-filter"></i>
+                </div>
+                <h3>规则引擎</h3>
+                <p>基于正则表达式、关键词的消息匹配和处理，支持优先级配置</p>
+                <div class="feature-tags">
+                    <span class="tag">正则</span>
+                    <span class="tag">关键词</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="core">
+                <div class="feature-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h3>持久化存储</h3>
+                <p>Bucket 数据桶机制，轻松实现数据的存储、读取和管理</p>
+                <div class="feature-tags">
+                    <span class="tag">Bucket</span>
+                    <span class="tag">键值存储</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="ai">
+                <div class="feature-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h3>AI大脑</h3>
+                <p>内置 AI 对话能力，支持多模型配置、技能导入、知识库检索</p>
+                <div class="feature-tags">
+                    <span class="tag">LLM</span>
+                    <span class="tag">MCP</span>
+                    <span class="tag">RAG</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="ai">
+                <div class="feature-icon">
+                    <i class="fas fa-project-diagram"></i>
+                </div>
+                <h3>工作流编排</h3>
+                <p>可视化节点编排，支持知识检索、LLM调用、条件分支等节点</p>
+                <div class="feature-tags">
+                    <span class="tag">可视化</span>
+                    <span class="tag">自动化</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="dev">
+                <div class="feature-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <h3>Webhook支持</h3>
+                <p>插件级 Webhook 路由，轻松实现外部系统集成</p>
+                <div class="feature-tags">
+                    <span class="tag">API</span>
+                    <span class="tag">集成</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="core">
+                <div class="feature-icon">
+                    <i class="fas fa-desktop"></i>
+                </div>
+                <h3>可视化面板</h3>
+                <p>完整的 Web 管理界面，支持主题切换、手机端适配</p>
+                <div class="feature-tags">
+                    <span class="tag">Web UI</span>
+                    <span class="tag">响应式</span>
+                </div>
+            </div>
+
+            <div class="feature-card" data-category="dev">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>青龙面板对接</h3>
+                <p>内置青龙容器支持，可在插件中直接调用青龙功能</p>
+                <div class="feature-tags">
+                    <span class="tag">自动化</span>
+                    <span class="tag">脚本</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 插件生态展示 -->
+    <section id="plugins" class="plugins">
+        <div class="section-header">
+            <span class="section-tag">PLUGINS</span>
+            <h2 class="section-title">丰富的插件生态</h2>
+            <p class="section-desc">两种开发模式，满足不同开发者需求</p>
+        </div>
+
+        <div class="plugins-showcase">
+            <div class="plugin-mode-card">
+                <div class="mode-header">
+                    <span class="mode-badge recommended">推荐</span>
+                    <h3>B-BOT 模式</h3>
+                </div>
+                <div class="mode-content">
+                    <p>使用 middleware 提供的异步能力，性能更优</p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> 异步消息处理</li>
+                        <li><i class="fas fa-check"></i> Bucket 数据存储</li>
+                        <li><i class="fas fa-check"></i> 管理员权限控制</li>
+                        <li><i class="fas fa-check"></i> 消息主动推送</li>
+                    </ul>
+                </div>
+                <div class="code-preview">
+                    <pre><code class="language-python">async def handle(msg, mw):
+    content = msg.get("content", "")
+    if content == "你好":
+        return {"content": "你好！"}
+
+def register(middleware):
+    middleware.register_message_handler(handle)</code></pre>
+                </div>
+            </div>
+
+            <div class="plugin-mode-card">
+                <div class="mode-header">
+                    <span class="mode-badge compatible">兼容</span>
+                    <h3>ATM 兼容模式</h3>
+                </div>
+                <div class="mode-content">
+                    <p>兼容奥特曼插件写法，轻松迁移现有插件</p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> 同步风格开发</li>
+                        <li><i class="fas fa-check"></i> Sender 类支持</li>
+                        <li><i class="fas fa-check"></i> 全局函数调用</li>
+                        <li><i class="fas fa-check"></i> 无缝迁移</li>
+                    </ul>
+                </div>
+                <div class="code-preview">
+                    <pre><code class="language-python">import middleware
+
+if __name__ == "__main__":
+    sender = middleware.Sender(
+        middleware.getSenderID())
+    msg = sender.getMessage()
+    if msg.startswith("你好"):
+        sender.reply("你好！")</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI大脑展示 -->
+    <section id="ai-brain" class="ai-brain">
+        <div class="section-header">
+            <span class="section-tag">AI BRAIN</span>
+            <h2 class="section-title">AI 大脑功能</h2>
+            <p class="section-desc">智能化升级，让机器人更懂你</p>
+        </div>
+
+        <div class="ai-features">
+            <div class="ai-card">
+                <div class="ai-icon">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <h3>配置中心</h3>
+                <p>多模型配置管理，支持 OpenAI 兼容接口，自动故障转移</p>
+            </div>
+
+            <div class="ai-card">
+                <div class="ai-icon">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <h3>技能中心</h3>
+                <p>技能导入与管理，支持从 URL、GitHub 仓库导入技能</p>
+            </div>
+
+            <div class="ai-card">
+                <div class="ai-icon">
+                    <i class="fas fa-book"></i>
+                </div>
+                <h3>知识中心</h3>
+                <p>RAG 知识库检索，支持文本、PDF 等文件导入</p>
+            </div>
+
+            <div class="ai-card">
+                <div class="ai-icon">
+                    <i class="fas fa-sitemap"></i>
+                </div>
+                <h3>工作流中心</h3>
+                <p>可视化节点编排，支持 LLM、MCP、条件分支等节点</p>
+            </div>
+
+            <div class="ai-card">
+                <div class="ai-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h3>定时任务</h3>
+                <p>AI 定时任务推送，支持 Cron 表达式配置</p>
+            </div>
+
+            <div class="ai-card">
+                <div class="ai-icon">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <h3>MCP 工具</h3>
+                <p>支持 MCP 协议工具调用，扩展 AI 能力边界</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 开发文档 -->
+    <section id="docs" class="docs">
+        <div class="section-header">
+            <span class="section-tag">DOCUMENTATION</span>
+            <h2 class="section-title">开发文档</h2>
+            <p class="section-desc">快速上手，轻松开发</p>
+        </div>
+
+        <div class="docs-container">
+            <div class="docs-sidebar">
+                <div class="docs-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="搜索文档..." id="docs-search">
+                </div>
+                <ul class="docs-nav">
+                    <li class="docs-nav-item active">
+                        <a href="#quickstart">
+                            <i class="fas fa-rocket"></i>
+                            快速开始
+                        </a>
+                    </li>
+                    <li class="docs-nav-item">
+                        <a href="#plugin-dev">
+                            <i class="fas fa-plug"></i>
+                            插件开发
+                        </a>
+                    </li>
+                    <li class="docs-nav-item">
+                        <a href="#middleware">
+                            <i class="fas fa-layer-group"></i>
+                            中间件 API
+                        </a>
+                    </li>
+                    <li class="docs-nav-item">
+                        <a href="#ai-config">
+                            <i class="fas fa-brain"></i>
+                            AI 配置
+                        </a>
+                    </li>
+                    <li class="docs-nav-item">
+                        <a href="#workflow">
+                            <i class="fas fa-project-diagram"></i>
+                            工作流
+                        </a>
+                    </li>
+                    <li class="docs-nav-item">
+                        <a href="#webhook">
+                            <i class="fas fa-webhook"></i>
+                            Webhook
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="docs-content">
+                <div class="doc-section" id="quickstart">
+                    <h3>快速开始</h3>
+                    <div class="doc-content">
+                        <h4>Docker 部署（推荐）</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span>bash</span>
+                                <button class="copy-btn"><i class="fas fa-copy"></i></button>
+                            </div>
+                            <pre><code>docker run -d \
+  --name bbot \
+  --restart unless-stopped \
+  -p 5000:5000 \
+  -p 8888:8888 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /your/data/path:/app/mount \
+  241793/b-bot:latest</code></pre>
+                        </div>
+                        
+                        <h4>访问面板</h4>
+                        <p>部署完成后，打开浏览器访问 <code>http://localhost:5000</code></p>
+                        
+                        <h4>配置 QQ 对接</h4>
+                        <p>在 NTQQ 的 LLOneBot 插件中配置 WebSocket：</p>
+                        <div class="code-block">
+                            <pre><code>ws://127.0.0.1:8888/ws/qq</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="doc-section" id="plugin-dev">
+                    <h3>插件开发</h3>
+                    <div class="doc-content">
+                        <h4>最小插件模板</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span>python</span>
+                                <button class="copy-btn"><i class="fas fa-copy"></i></button>
+                            </div>
+                            <pre><code>"""
+示例插件
+这是一个示例插件
+"""
+
+__description__ = "示例插件"
+__version__ = "1.0.0"
+__author__ = "开发者"
+__imType__ = "qq"
+__admin__ = False
+
+async def handle_message(msg, middleware):
+    content = msg.get("content", "")
+    if content == "你好":
+        return {"content": "你好！我是 B-BOT"}
+
+def register(middleware):
+    middleware.register_message_handler(handle_message)</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 下载区域 -->
+    <section id="download" class="download">
+        <div class="section-header">
+            <span class="section-tag">DOWNLOAD</span>
+            <h2 class="section-title">立即开始</h2>
+            <p class="section-desc">选择适合你的部署方式</p>
+        </div>
+
+        <div class="download-options">
+            <div class="download-card">
+                <div class="download-icon">
+                    <i class="fab fa-docker"></i>
+                </div>
+                <h3>Docker 部署</h3>
+                <p>推荐方式，一键部署，自动更新</p>
+                <span class="version">最新版本: v1.0.6</span>
+                <a href="#" class="btn btn-primary">查看部署指南</a>
+            </div>
+
+            <div class="download-card">
+                <div class="download-icon">
+                    <i class="fab fa-windows"></i>
+                </div>
+                <h3>Windows 版本</h3>
+                <p>一键运行，无需配置环境</p>
+                <span class="version">最新版本: v0.0.9（已停更）</span>
+                <a href="#" class="btn btn-secondary">下载（旧版）</a>
+            </div>
+
+            <div class="download-card">
+                <div class="download-icon">
+                    <i class="fab fa-android"></i>
+                </div>
+                <h3>Android APP</h3>
+                <p>配套手机端应用</p>
+                <span class="version">最新版本: v1.0.3</span>
+                <a href="#" class="btn btn-secondary">下载 APK</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="logo">
+                    <span class="logo-icon"><i class="fas fa-robot"></i></span>
+                    <span class="logo-text">B-BOT</span>
+                </div>
+                <p>下一代智能机器人框架</p>
+            </div>
+            <div class="footer-links">
+                <div class="footer-section">
+                    <h4>产品</h4>
+                    <ul>
+                        <li><a href="#features">功能特性</a></li>
+                        <li><a href="#plugins">插件生态</a></li>
+                        <li><a href="#ai-brain">AI大脑</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>开发</h4>
+                    <ul>
+                        <li><a href="#docs">开发文档</a></li>
+                        <li><a href="#">API 参考</a></li>
+                        <li><a href="#">示例代码</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>社区</h4>
+                    <ul>
+                        <li><a href="#">GitHub</a></li>
+                        <li><a href="#">讨论区</a></li>
+                        <li><a href="#">更新日志</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 B-BOT. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
