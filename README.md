@@ -6,9 +6,9 @@
 1.0.0 新增适配器
 
 win版已停更(0.0.9)
-配套安卓APP1.0.2：https://github.com/241793/B-Bot/releases/download/1.0.6/B-BOT1.0.3.apk
+配套安卓APP1.0.3：https://github.com/241793/B-Bot/releases/download/1.0.6/B-BOT1.0.3.apk
 
-一个类似奥特曼的机器人框架,通过python实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具。
+一个类似奥特曼的机器人框架,通过python实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具，最新版实现Agent管理，向openclaw靠齐。
 win电脑需要有python环境
 
 ntqq的llonebot插件配置ws:ws://127.0.0.1:port/ws/qq
