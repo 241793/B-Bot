@@ -1,4 +1,4 @@
-#B-Bot
+<img width="1821" height="895" alt="1774886266404" src="https://github.com/user-attachments/assets/e9c4ec0d-84e7-4a6c-8775-e24ed609d7f3" />#B-Bot
 
 本项目仅提供学习和参考,请勿违法操作,请于24小时内删除！
 2026/3/3 1.0.2 优化授权逻辑，新增更新指令，优化后台页面，主题切换，手机端适配
@@ -10,6 +10,7 @@ win版已停更(0.0.9)
 
 一个类似奥特曼的机器人框架,通过python实现,具有多协议接入、插件化架构、规则引擎、持久化存储和可视化面板的自动化工具，最新版实现Agent管理，向openclaw靠齐。
 win电脑需要有python环境
+<img width="1821" height="895" alt="1774886266404" src="https://github.com/user-attachments/assets/b38a93e0-6389-46bc-a105-d2b1462ad1fd" />
 
 ntqq的llonebot插件配置ws:ws://127.0.0.1:port/ws/qq
 
