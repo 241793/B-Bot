@@ -1,4 +1,4 @@
-<img width="1821" height="895" alt="1774886266404" src="https://github.com/user-attachments/assets/e9c4ec0d-84e7-4a6c-8775-e24ed609d7f3" />#B-Bot
+#B-Bot
 
 本项目仅提供学习和参考,请勿违法操作,请于24小时内删除！
 2026/3/3 1.0.2 优化授权逻辑，新增更新指令，优化后台页面，主题切换，手机端适配
