@@ -20,7 +20,7 @@ ntqq的llonebot插件配置ws:ws://127.0.0.1:port/ws/qq
 新.
 1.0.6版本新增命令：更新、回退、重启等，新增AI大脑功能，加入养虾，BbotClaw
 【首次部署请发更新命令，更新最新内置数据】
-
+说明：5000是web端口，8888是ws的端口
 ```docker
 docker run -d \
   --name bbot \
