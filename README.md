@@ -73,7 +73,240 @@ B-BOT.exe一键运行
 ntqq的隆内博特插件配置ws:ws://127.0.0.1:port/ws/qq
 
 ### 适配器管理（支持对接渠道：QQ、wxclawbot、tgbot等更多渠道正在对接中）
-### 插件管理
+#### Custom 适配器对接文档，对接外部
+##### 1. 功能说明
+- `custom` 适配器用于把外部系统（客服系统、工单系统、业务后台）接入 B-BOT。
+- 支持两条链路：
+1. 入站：外部系统调用 webhook，把消息推送给机器人处理。
+2. 出站：机器人回复后，回调到你的业务系统。
+
+##### 2. Web 端配置
+进入 `适配器 -> custom -> 查看/编辑`，配置以下字段：
+
+- `启用入站 Token 校验`：建议开启。
+- `入站 Token`：外部系统调用 webhook 时用于鉴权。
+- `默认 user_id`：外部未传 `user_id` 时使用。
+- `默认发送者名称`：外部未传昵称时使用。
+- `启用消息回调`：是否把机器人回复回传给业务系统。
+- `回调 URL`：业务系统接收机器人回复的 HTTP 地址。
+- `回调 Bearer Token`：回调时附带 `Authorization: Bearer xxx`。
+- `附加 Headers(JSON)`：额外请求头，例 `{"X-Source":"bbot"}`。
+- `启用回调验签头`：开启后会附带 `X-BBot-Signature`。
+- `验签密钥（Sign Secret）`：用于生成回调签名。
+
+同时支持 `Web 一键联调`：
+- 在 custom 配置页可直接填写测试 JSON，点击“**一键联调入站**”调试。
+
+##### 3. 入站接口
+URL：
+
+```text
+POST /api/adapters/custom/inbound
+Content-Type: application/json
+```
+
+鉴权（二选一）：
+
+```text
+X-Custom-Token: <你的token>
+```
+
+或
+
+```text
+Authorization: Bearer <你的token>
+```
+
+请求体示例：
+
+```json
+{
+  "message_id": "cs_10001",
+  "user_id": "u_9527",
+  "group_id": "",
+  "sender": {"nickname": "张三"},
+  "content": "帮我查一下订单A1001状态",
+  "source": "crm",
+  "timestamp": 1775600000
+}
+```
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "消息已进入处理队列",
+  "data": {
+    "message_id": "cs_10001",
+    "user_id": "u_9527",
+    "group_id": ""
+  }
+}
+```
+
+##### 4. 出站回调格式（机器人回复 -> 业务系统）
+当启用 `消息回调` 后，B-BOT 会 POST 到你配置的回调 URL：
+
+```json
+{
+  "event": "bot_reply",
+  "adapter": "custom",
+  "target_type": "user",
+  "target_id": "u_9527",
+  "content": "你好，订单 A1001 已发货，预计明天送达。",
+  "timestamp": 1775600123,
+  "meta": {
+    "content": "你好，订单 A1001 已发货，预计明天送达。"
+  }
+}
+```
+
+如果开启了回调验签，会带上这些 Header：
+
+```text
+X-BBot-Signature: sha256=<hex>
+X-BBot-Sign-Alg: hmac-sha256
+X-BBot-Timestamp: <unix_ts>
+```
+
+签名计算方式：
+
+```text
+HMAC_SHA256(sign_secret, payload_json_sorted)
+```
+
+说明：
+- `payload_json_sorted` 为 JSON 序列化后的字符串，键按字典序排序（`sort_keys=True`）。
+- 当前实现不依赖请求体原始空白字符，按上述规则重建 JSON 后计算即可。
+
+建议你的回调接口返回 HTTP 2xx，且可选返回：
+
+```json
+{
+  "success": true,
+  "data": {"message_id": "biz_reply_123"}
+}
+```
+
+##### 5. 知识库隔离（custom 专用）
+- AI 配置新增了 `Custom 适配器知识桶`，默认值：`ai_knowledge_custom`。
+- 当消息来源平台是 `custom` 时，AI 会优先读取 `custom` 专用知识桶，避免与主知识库 `ai_knowledge` 冲突。
+- 你可以在 AI 知识库页面切换/录入 `ai_knowledge_custom` 作为外部渠道专用知识数据。
+
+##### 6. 外部系统调用示例
+###### 6.1 Python（入站调用）
+```python
+import requests
+
+url = "http://127.0.0.1:5000/api/adapters/custom/inbound"
+headers = {
+    "Content-Type": "application/json",
+    "X-Custom-Token": "YOUR_INBOUND_TOKEN",
+}
+payload = {
+    "message_id": "crm_1001",
+    "user_id": "u_1001",
+    "content": "帮我查询订单状态",
+    "sender": {"nickname": "客服系统用户"},
+    "source": "crm",
+}
+r = requests.post(url, json=payload, headers=headers, timeout=10)
+print(r.status_code, r.text)
+```
+
+###### 6.2 Node.js（入站调用）
+```javascript
+const url = "http://127.0.0.1:5000/api/adapters/custom/inbound";
+const payload = {
+  message_id: "crm_1002",
+  user_id: "u_1002",
+  content: "帮我看一下退款进度",
+  source: "crm"
+};
+
+fetch(url, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Custom-Token": "YOUR_INBOUND_TOKEN"
+  },
+  body: JSON.stringify(payload)
+}).then(async (resp) => {
+  console.log(resp.status, await resp.text());
+});
+```
+
+###### 6.3 Java（入站调用，JDK11 HttpClient）
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+public class CustomInboundDemo {
+    public static void main(String[] args) throws Exception {
+        String body = "{\"message_id\":\"crm_1003\",\"user_id\":\"u_1003\",\"content\":\"测试Java入站\"}";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://127.0.0.1:5000/api/adapters/custom/inbound"))
+                .header("Content-Type", "application/json")
+                .header("X-Custom-Token", "YOUR_INBOUND_TOKEN")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        System.out.println(response.statusCode() + " " + response.body());
+    }
+}
+```
+
+##### 7. 回调验签示例
+###### 7.1 Python（校验 X-BBot-Signature）
+```python
+import hmac
+import hashlib
+import json
+
+def verify_signature(payload_dict, sign_secret, header_signature):
+    payload_json = json.dumps(payload_dict, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    expected = "sha256=" + hmac.new(
+        sign_secret.encode("utf-8"),
+        payload_json.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, header_signature or "")
+```
+
+###### 7.2 Node.js（校验 X-BBot-Signature）
+```javascript
+import crypto from "crypto";
+import stringify from "json-stable-stringify";
+
+function verifySignature(payload, secret, headerSig) {
+  const payloadJson = stringify(payload); // 稳定排序序列化
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(payloadJson, "utf8").digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(headerSig || ""));
+}
+```
+
+###### 7.3 Java（校验 X-BBot-Signature）
+```java
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+
+public class SignVerify {
+    public static String hmacSha256Hex(String secret, String payloadJsonSorted) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] out = mac.doFinal(payloadJsonSorted.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : out) sb.append(String.format("%02x", b));
+        return "sha256=" + sb;
+    }
+}
+```
+
 
 ### 规则管理
 - 查看系统规则
