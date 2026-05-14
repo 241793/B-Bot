@@ -352,7 +352,7 @@ public class SignVerify {
 #### 基本插件结构
 - 一些参数：platform: qq(ws对接的渠道)、web_ui(web端)
 
-##### 插件编写方法一
+##### PYTHON插件编写方法一
 ```python
 """
 插件名称
@@ -1114,6 +1114,67 @@ def register(middleware):
         return await loop.run_in_executor(None, pfunc)
 
 ```
+#### JS插件
+概述
+B-BOT 框架支持 JavaScript 插件，与 Python 插件共存。JS 插件存放在 `plugins/js/` 目录下(中间件函数查看js_plugin_runner.js或middleware.js),适配奥特曼插件写法
+
+##### JS插件编写方法一
+```javascript
+//[disable:false]
+//[platform: qq,wx,tg,tb,web,wxmp]
+//[priority: 9999999999]
+//[service: 插件功能描述]
+//[rule: ^触发词$]
+//[admin: false]
+//[param: {"required":true,"key":"config_key","bool":false,"placeholder":"","name":"配置名","desc":"配置说明"}]
+```
+例子：
+```javascript
+//[disable:false]
+//[platform: qq,wx,tg,tb,web,wxmp]
+//[priority: 10]
+//[rule: ^签到$]
+//[param: {"required":true,"key":"sign.points","bool":false,"placeholder":"10","name":"签到积分","desc":"每日签到获得的积分数量"}]
+//[param: {"required":false,"key":"sign.cooldown","bool":false,"placeholder":"24","name":"冷却时间","desc":"签到冷却时间（小时）"}]
+
+const { Sender } = require('middleware');
+const sender = new Sender(global.senderID);
+sender.reply("签到成功！获得 10 积分。");
+```
+
+
+
+##### JS插件编写方法二
+插件头
+| 字段 | JSDoc 格式 | 双斜杠格式 | 说明 | 示例 |
+|------|-----------|-----------|------|------|
+| 版本 | `@version` | `[version]` | 插件版本 | `1.0.0` |
+| 描述 | `@description` | `[description]` 或 `[service]` | 插件描述 | `天气查询插件` |
+| 作者 | `@author` | `[author]` | 作者名 | `B-BOT` |
+| 分类 | `@class` | `[class]` | 分类/标签 | `工具类`、`娱乐类` |
+| 触发规则 | `@rule` | `[rule]` | 触发规则（正则） | `^天气\s+(.+)$` |
+| 管理员 | `@admin` | `[admin]` | 需要管理员权限 | `true`、`false` |
+| 禁用 | - | `[disable]` | 禁用插件 | `true`、`false` |
+| 平台 | `@imType` | `[platform]` 或 `[imType]` | 限定平台（逗号分隔） | `qq,wx,tg` |
+| 优先级 | `@priority` | `[priority]` | 优先级（数字越大越先执行） | `10` |
+| 参数 | `@param` | `[param]` | 参数定义（JSON格式） | 见下方示例 |
+
+例子：
+```javascript
+/**
+ * @rule: ^触发词$
+ * @version: 1.0.0
+ * @author: 靓仔
+ */
+const { Sender } = require('middleware');
+
+async function handler(senderID, message) {
+    const sender = new Sender(senderID);
+    sender.reply("Hello!");
+}
+module.exports = { handler };
+```
+
 
 # 青龙调用,调用函数
 
