@@ -1114,11 +1114,11 @@ def register(middleware):
         return await loop.run_in_executor(None, pfunc)
 
 ```
-#### JS插件
+## JS插件
 概述
 B-BOT 框架支持 JavaScript 插件，与 Python 插件共存。JS 插件存放在 `plugins/js/` 目录下(中间件函数查看js_plugin_runner.js或middleware.js),适配奥特曼插件写法
 
-##### JS插件编写方法一
+### JS插件编写方法一
 ```javascript
 //[disable:false]
 //[platform: qq,wx,tg,tb,web,wxmp]
@@ -1144,7 +1144,7 @@ sender.reply("签到成功！获得 10 积分。");
 
 
 
-##### JS插件编写方法二
+### JS插件编写方法二
 插件头
 | 字段 | JSDoc 格式 | 双斜杠格式 | 说明 | 示例 |
 |------|-----------|-----------|------|------|
@@ -1174,7 +1174,6 @@ async function handler(senderID, message) {
 }
 module.exports = { handler };
 ```
-
 
 # 青龙调用,调用函数
 
