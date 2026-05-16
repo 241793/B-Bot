@@ -2559,3 +2559,367 @@ def handle_webhook(
 - 强烈建议做签名校验、时间戳校验、IP 白名单（至少做前两项）。
 - 外部请求必须加超时，避免阻塞。
 - 若要持久化数据，优先使用 `bucket` 存储。
+
+
+
+# 内置支付系统接入指南
+
+## 概述
+
+内置支付系统（alipay_pay）已集成到 Middleware 中，插件可直接通过 `middleware` 对象调用支付功能，无需导入任何支付模块。
+
+## 配置方式
+
+在「码支付 → 支付配置」页面填写：
+- AppId
+- 应用私钥
+- 支付宝公钥
+- 商户ID
+- 商户密钥
+
+---
+
+## Middleware API
+
+### create_payment — 创建订单
+
+```python
+result = await middleware.create_payment(money, name, out_trade_no, **kwargs)
+```
+
+**参数：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| money | str | 是 | 金额，保留两位小数，如 `"0.01"` |
+| name | str | 是 | 商品名称 |
+| out_trade_no | str | 是 | 商户订单号（需唯一） |
+| notify_url | str | 否 | 支付回调地址（见下方说明） |
+| return_url | str | 否 | 支付完成后跳转地址 |
+
+**返回值 — 传统模式（成功）：**
+
+```json
+{
+    "code": 1,
+    "msg": "SUCCESS",
+    "pid": "商户ID",
+    "trade_no": "20260516120000123456",
+    "out_trade_no": "ORDER_001",
+    "money": "0.01",
+    "payment_amount": "0.01",
+    "payment_url": "https://qr.alipay.com/baxxxxx",
+    "qr_code": "base64编码的二维码图片"
+}
+```
+
+**返回值 — 经营码模式（成功）：**
+
+```json
+{
+    "code": 1,
+    "msg": "SUCCESS",
+    "pid": "商户ID",
+    "trade_no": "20260516120000123456",
+    "out_trade_no": "ORDER_001",
+    "money": "0.01",
+    "payment_amount": "0.02",
+    "payment_url": "经营码收款模式",
+    "qr_code_url": "/api/codepay/qrcode?token=xxx",
+    "qr_code": "base64编码的经营码图片",
+    "business_qr_mode": true,
+    "payment_instruction": "请使用支付宝扫描二维码，支付金额：0.02 元",
+    "amount_adjusted": true,
+    "adjustment_note": "检测到相同金额订单，实际支付金额已调整为 0.02 元"
+}
+```
+
+**返回值 — 失败：**
+
+```json
+{
+    "code": -1,
+    "msg": "错误信息"
+}
+```
+
+**返回字段说明：**
+
+| 字段 | 说明 |
+|------|------|
+| code | 1=成功，-1=失败 |
+| trade_no | 内部交易号（系统生成） |
+| out_trade_no | 商户订单号（你传入的） |
+| money | 原始金额 |
+| payment_amount | 实际支付金额（经营码模式可能调整） |
+| payment_url | 支付链接（传统模式为支付宝链接，经营码模式为固定文本） |
+| qr_code | 二维码图片的 base64 编码（可直接用于 `<img src="data:image/png;base64,...">`） |
+| qr_code_url | 经营码二维码图片的 API 路径 |
+| business_qr_mode | 是否为经营码模式 |
+| payment_instruction | 支付说明文字 |
+| amount_adjusted | 经营码模式下金额是否被调整（仅当为 true 时存在） |
+
+---
+
+### query_order — 查询订单
+
+```python
+result = await middleware.query_order(out_trade_no)
+```
+
+**返回值：**
+
+```json
+{
+    "code": 1,
+    "msg": "SUCCESS",
+    "trade_no": "20260516120000123456",
+    "out_trade_no": "ORDER_001",
+    "type": "alipay",
+    "pid": "商户ID",
+    "addtime": "2026-05-16 12:00:00",
+    "endtime": null,
+    "name": "商品名",
+    "money": "0.01",
+    "status": 0
+}
+```
+
+**订单状态：**
+
+| status | 说明 |
+|--------|------|
+| 0 | 待支付 |
+| 1 | 已支付 |
+| 2 | 已过期 |
+
+---
+
+### process_payment_notification — 处理支付回调
+
+```python
+result = await middleware.process_payment_notification(payload)
+```
+
+用于处理外部系统推送的支付通知。返回 `{"code": 1, "msg": "SUCCESS"}` 表示处理成功。
+
+---
+
+### get_payment_config — 获取支付配置
+
+```python
+config = await middleware.get_payment_config()
+```
+
+返回当前支付配置的完整字典，包含 app_id、merchant_id、经营码配置等。
+
+---
+
+## 回调地址（notify_url）
+
+### 说明
+
+`notify_url` 是支付成功后，由外部支付网关主动推送通知的目标地址。**内置支付系统默认不需要配置回调地址**，因为系统通过自动轮询支付宝账单来检测支付状态。
+
+### 何时需要回调地址
+
+| 场景 | 是否需要 notify_url |
+|------|---------------------|
+| 内置支付系统（本框架） | 不需要，轮询自动检测 |
+| 外部 PHP 码支付网关 | 需要，由网关推送通知 |
+| 对接第三方支付平台 | 需要，平台推送通知 |
+
+### 回调地址格式
+
+```
+http://你的域名:端口/api/codepay?act=notify
+```
+
+或使用插件 webhook 地址：
+
+```
+http://你的域名:端口/api/plugins/插件名/webhook
+```
+
+### 回调参数
+
+支付成功后，回调地址会收到以下 POST 参数：
+
+| 参数 | 说明 |
+|------|------|
+| pid | 商户ID |
+| trade_no | 内部交易号 |
+| out_trade_no | 商户订单号 |
+| type | 支付方式（alipay） |
+| name | 商品名称 |
+| money | 金额 |
+| trade_status | 交易状态（TRADE_SUCCESS=成功） |
+| sign | MD5 签名 |
+| sign_type | 签名类型（MD5） |
+
+### 签名验证
+
+回调签名规则与创建订单相同：过滤空值和 sign/sign_type，按键排序后 `md5(拼接字符串 + 商户密钥)`。
+
+### 回调响应
+
+处理成功后需返回纯文本 `success`，否则支付系统会重试通知（最多3次）。
+
+### 内置回调处理
+
+**方式一：通过 API 端点**
+
+```
+POST /api/codepay
+Content-Type: application/x-www-form-urlencoded
+
+act=notify&pid=xxx&trade_no=xxx&out_trade_no=xxx&trade_status=TRADE_SUCCESS&sign=xxx
+```
+
+**方式二：通过插件 webhook**
+
+```
+POST /api/plugins/alipay_codepay/webhook
+Content-Type: application/x-www-form-urlencoded
+
+pid=xxx&trade_no=xxx&out_trade_no=xxx&trade_status=TRADE_SUCCESS&sign=xxx
+```
+
+**方式三：在插件中手动处理**
+
+```python
+result = await middleware.process_payment_notification(payload)
+if result.get("code") == 1:
+    # 支付成功，执行业务逻辑
+    pass
+```
+
+---
+
+## API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/codepay?act=create` | POST | 创建订单（CodePay 协议） |
+| `/api/codepay?act=order` | GET | 查询订单状态 |
+| `/api/codepay?act=notify` | POST | 支付回调通知 |
+| `/api/codepay?act=query` | GET | 查询商户信息 |
+| `/api/codepay/status/{out_trade_no}` | GET | 前端轮询订单状态（自动触发监控） |
+| `/api/codepay/qrcode` | GET | 获取经营码二维码图片 |
+| `/api/alipay/health` | GET | 支付系统健康检查 |
+| `/api/alipay/config` | GET/POST | 获取/保存支付配置 |
+| `/api/alipay/orders` | GET | 订单列表（分页） |
+| `/api/alipay/stats` | GET | 订单统计 |
+
+---
+
+## 判断支付成功
+
+### 方式一：查询订单状态
+
+```python
+result = await middleware.query_order("ORDER_001")
+if result.get("code") == 1 and result.get("status") == 1:
+    print("支付成功")
+```
+
+### 方式二：前端轮询接口（推荐）
+
+```javascript
+const response = await fetch(`/api/codepay/status/${outTradeNo}`);
+const data = await response.json();
+if (data.status === 1) {
+    // 支付成功
+}
+```
+
+前端轮询时，系统会自动触发一次支付监控周期，加速支付状态检测。
+
+### 方式三：自行实现轮询
+
+```python
+import asyncio
+
+async def wait_for_payment(out_trade_no, timeout=300):
+    elapsed = 0
+    while elapsed < timeout:
+        result = await middleware.query_order(out_trade_no)
+        if result.get("code") == 1 and result.get("status") == 1:
+            return True
+        await asyncio.sleep(3)
+        elapsed += 3
+    return False
+```
+
+### 方式四：回调通知
+
+配置 `notify_url`，支付成功后系统会主动推送通知到该地址（适合外部系统对接）。
+
+---
+
+## 支付流程
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  创建订单   │ ──▶ │  显示二维码  │ ──▶ │  用户扫码   │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                              │
+                                              ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  支付成功   │ ◀── │  金额匹配   │ ◀── │  账单查询   │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │
+       ├──── 轮询获取最新状态（前端/插件）
+       │
+       └──── 回调通知（notify_url，可选）
+```
+
+---
+
+## 机器人命令
+
+框架内置了 `alipay_codepay` 插件，支持以下机器人命令：
+
+- `创建支付 <商品名> <金额>` — 创建订单并返回二维码
+- `查询订单 <订单号>` — 查询订单状态
+- `支付状态` — 查看待支付订单
+
+---
+
+## 注意事项
+
+1. **订单超时**：默认 300 秒后订单自动过期，可在支付配置页面修改
+2. **金额精度**：金额保留两位小数
+3. **经营码模式**：开启后自动分配唯一金额，避免重复匹配
+4. **二维码图片**：`create_payment` 返回的 `qr_code` 是 base64 编码，可直接用于图片显示
+
+---
+
+## 完整示例
+
+```python
+async def my_payment_flow():
+    """完整的支付流程示例"""
+
+    # 1. 创建订单
+    out_trade_no = "ORDER_001"
+    result = await middleware.create_payment("9.99", "VIP会员", out_trade_no)
+
+    if result.get("code") != 1:
+        return {"success": False, "error": result.get("msg")}
+
+    # 获取二维码（base64，可直接发给用户）
+    qr_code = result.get("qr_code", "")
+
+    # 2. 等待支付（自行轮询或使用前端轮询接口）
+    import asyncio
+    for _ in range(40):  # 最多等2分钟
+        await asyncio.sleep(3)
+        status_result = await middleware.query_order(out_trade_no)
+        if status_result.get("code") == 1 and status_result.get("status") == 1:
+            # 3. 支付成功，执行业务逻辑
+            await middleware.push_to_user("qq", "123456", f"支付成功: {out_trade_no}")
+            return {"success": True, "order": out_trade_no}
+
+    return {"success": False, "error": "支付超时"}
+```
