@@ -1,6 +1,7 @@
 #B-Bot
 
 本项目仅提供学习和参考,请勿违法操作,请于24小时内删除！
+2026/5/17 1.1.1 更新更多功能，完善Agent，内置支付系统，优化UI
 2026/3/3 1.0.2 优化授权逻辑，新增更新指令，优化后台页面，主题切换，手机端适配
 2026/2/28 1.0.1 新增内置青龙，可告别青龙面板运行脚本
 1.0.0 新增适配器
@@ -2899,28 +2900,38 @@ async def wait_for_payment(out_trade_no, timeout=300):
 ## 完整示例
 
 ```python
-async def my_payment_flow():
+# [rule: ^测试支付$]
+import middleware,time
+def my_payment_flow(middleware):
     """完整的支付流程示例"""
 
     # 1. 创建订单
     out_trade_no = "ORDER_001"
-    result = await middleware.create_payment("9.99", "VIP会员", out_trade_no)
-
+    result = middleware.create_payment("9.99", "VIP会员", out_trade_no)
     if result.get("code") != 1:
-        return {"success": False, "error": result.get("msg")}
+        #return {"success": False, "error": result.get("msg")}
+        return {"content":result.get("msg")}
 
     # 获取二维码（base64，可直接发给用户）
     qr_code = result.get("qr_code", "")
-
+    middleware.replyImage(qr_code)
     # 2. 等待支付（自行轮询或使用前端轮询接口）
-    import asyncio
     for _ in range(40):  # 最多等2分钟
-        await asyncio.sleep(3)
-        status_result = await middleware.query_order(out_trade_no)
+        time.sleep(3)
+        status_result = middleware.query_order(out_trade_no)
         if status_result.get("code") == 1 and status_result.get("status") == 1:
             # 3. 支付成功，执行业务逻辑
-            await middleware.push_to_user("qq", "123456", f"支付成功: {out_trade_no}")
-            return {"success": True, "order": out_trade_no}
+            middleware.push("qq", "","123456",""码支付, f"支付成功: {out_trade_no}")
+            return {"content": f"{out_trade_no}支付成功"}
+        elif status_result.get("status") == 2:
+            return {"content":f"{out_trade_no}:支付超时"}
 
     return {"success": False, "error": "支付超时"}
+if __name__ == '__main__':
+    senderID = middleware.getSenderID()
+    sender = middleware.Sender(senderID)
+    user = sender.getUserID()
+    kmxt = Kmxt(user, sender)
+    message = sender.getMessage()
+    my_payment_flow(middleware)
 ```
