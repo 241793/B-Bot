@@ -68,29 +68,46 @@
 
 ## 目录
 
-### 入门
+**一、入门**
 - [更新日志](#更新日志)
 - [功能特性](#功能特性)
 - [快速开始](#快速开始)
+  - [Docker 部署](#docker-部署推荐)
+  - [本地运行](#本地运行)
 
-### 使用与对接
+**二、使用与对接**
 - [Web 管理模块一览](#web-管理模块一览)
 - [适配器对接](#适配器对接)
+  - [常见适配器快速对接](#常见适配器快速对接)
+    - [QQ（llonebot）](#qqllonebot--正向-ws)
+    - [官方 QQ Bot](#官方-qq-bot)
+    - [wxclaw](#wxclaw微信-clawbot)
   - [Custom 适配器](#custom-适配器外部系统对接)
 - [WebSocket 协议](#websocket-协议)
 - [环境配置](#环境配置)
 
-### 开发扩展
+**三、开发扩展**
 - [插件开发](#插件开发)
+  - [开发规范](#开发规范)
+  - [Python 插件](#python-插件)
+  - [Middleware 实践](#middleware-实践)
   - [Middleware API 速查](#middleware-api-速查)
   - [JS 插件](#js-插件)
   - [插件 Webhook](#插件-webhook)
 
-### AI 与自动化
+**四、AI 与自动化**
 - [AI 大脑](#ai-大脑)
-- [知识库导出 / 导入](#知识库导出--导入)
+  - [功能总览](#功能总览)
+  - [配置中心](#配置中心)
+  - [技能中心](#技能中心)
+  - [知识中心](#知识中心)
+  - [工作流中心](#工作流中心)
+  - [工作流进阶手册](#工作流进阶手册)
+  - [工作流 3 分钟上手](#工作流-3-分钟上手)
+  - [AI 定时任务](#ai-定时任务)
+  - [知识库导出 / 导入](#知识库导出--导入)
 
-### 支付与其他
+**五、支付与其他**
 - [内置支付系统](#内置支付系统)
 - [常见问题与特殊说明](#常见问题与特殊说明)
 
@@ -98,7 +115,7 @@
 
 ## 快速开始
 
-### Docker（推荐，1.0.6+）
+### Docker 部署（推荐）
 
 说明：`5000` 为 Web 端口，`8888` 为 WS 端口。  
 首次启动会自动构建需要的文件；若已有数据请先备份 `data`，启动后再覆盖。
@@ -132,7 +149,7 @@ docker run -d \
 
 Docker 教程：https://bchome.dpdns.org/index.php/archives/168/
 
-### 本地 / Win
+### 本地运行
 
 ```bash
 # 有 Python 环境时可直接运行项目入口
@@ -142,28 +159,6 @@ Docker 教程：https://bchome.dpdns.org/index.php/archives/168/
 访问 Web 管理界面：`http://127.0.0.1:5000`  
 WebSocket：`ws://127.0.0.1:8888`（可在 `.env` 修改端口）
 
-### QQ（llonebot）对接
-
-ntqq 的 llonebot 插件配置：
-
-```text
-ws://127.0.0.1:端口/ws/qq
-```
-
-对接教程：https://bchome.dpdns.org/index.php/archives/157/
-
-### 官方 QQ Bot
-
-在 QQ 开放平台获取 AppID / Secret（OpenClaw 同款），填入适配器 `qqbot` 配置即可拉群使用。
-
-### wxclaw（微信 ClawBot）
-
-1. 在适配器中配置 Bot Token（登录凭证，适配器页面上的 Token）
-2. 用户发消息后框架会保存该用户的 `context_token`
-3. **官方限制**：用户发消息后，**仅 24 小时内**可主动回复  
-   - 超过 24 小时未互动，主动推送会失败  
-   - 用户再发一条消息后窗口重新打开  
-   - 适配器页面的 Token ≠ 24 小时会话窗口凭证
 
 ---
 
@@ -186,14 +181,43 @@ Web 后台按业务分为以下几组：
 
 支持渠道：QQ（llonebot/ws）、官方 QQ Bot、wxclaw、TGBot、企业微信、钉钉、飞书、Web UI、Custom 等。
 
+### 常见适配器快速对接
+
+下面是最常用渠道的最短配置说明。更复杂的 Custom 对接见下一节。
+
+#### QQ（llonebot / 正向 WS）
+
+ntqq 的 llonebot 插件配置：
+
+```text
+ws://127.0.0.1:端口/ws/qq
+```
+
+对接教程：https://bchome.dpdns.org/index.php/archives/157/
+
+#### 官方 QQ Bot
+
+在 QQ 开放平台获取 AppID / Secret（OpenClaw 同款），填入适配器 `qqbot` 配置即可拉群使用。
+
+#### wxclaw（微信 ClawBot）
+
+1. 在适配器中配置 Bot Token（登录凭证，适配器页面上的 Token）
+2. 用户发消息后框架会保存该用户的 `context_token`
+3. **官方限制**：用户发消息后，**仅 24 小时内**可主动回复  
+   - 超过 24 小时未互动，主动推送会失败  
+   - 用户再发一条消息后窗口重新打开  
+   - 适配器页面的 Token ≠ 24 小时会话窗口凭证
+
+---
+
 ### Custom 适配器（外部系统对接）
-#### 1. 功能说明
+#### 功能说明
 - `custom` 适配器用于把外部系统（客服系统、工单系统、业务后台）接入 B-BOT。
 - 支持两条链路：
 1. 入站：外部系统调用 webhook，把消息推送给机器人处理。
 2. 出站：机器人回复后，回调到你的业务系统。
 
-#### 2. Web 端配置
+#### Web 端配置
 进入 `适配器 -> custom -> 查看/编辑`，配置以下字段：
 
 - `启用入站 Token 校验`：建议开启。
@@ -210,7 +234,7 @@ Web 后台按业务分为以下几组：
 同时支持 `Web 一键联调`：
 - 在 custom 配置页可直接填写测试 JSON，点击“**一键联调入站**”调试。
 
-#### 3. 入站接口
+#### 入站接口
 URL：
 
 ```text
@@ -258,7 +282,7 @@ Authorization: Bearer <你的token>
 }
 ```
 
-#### 4. 出站回调格式（机器人回复 -> 业务系统）
+#### 出站回调格式
 当启用 `消息回调` 后，B-BOT 会 POST 到你配置的回调 URL：
 
 ```json
@@ -302,13 +326,13 @@ HMAC_SHA256(sign_secret, payload_json_sorted)
 }
 ```
 
-#### 5. 知识库隔离（custom 专用）
+#### 知识库隔离（custom 专用）
 - AI 配置新增了 `Custom 适配器知识桶`，默认值：`ai_knowledge_custom`。
 - 当消息来源平台是 `custom` 时，AI 会优先读取 `custom` 专用知识桶，避免与主知识库 `ai_knowledge` 冲突。
 - 你可以在 AI 知识库页面切换/录入 `ai_knowledge_custom` 作为外部渠道专用知识数据。
 
-#### 6. 外部系统调用示例
-##### 6.1 Python（入站调用）
+#### 外部系统调用示例
+##### Python 入站示例
 ```python
 import requests
 
@@ -328,7 +352,7 @@ r = requests.post(url, json=payload, headers=headers, timeout=10)
 print(r.status_code, r.text)
 ```
 
-##### 6.2 Node.js（入站调用）
+##### Node.js 入站示例
 ```javascript
 const url = "http://127.0.0.1:5000/api/adapters/custom/inbound";
 const payload = {
@@ -350,7 +374,7 @@ fetch(url, {
 });
 ```
 
-##### 6.3 Java（入站调用，JDK11 HttpClient）
+##### Java 入站示例
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -373,8 +397,8 @@ public class CustomInboundDemo {
 }
 ```
 
-#### 7. 回调验签示例
-##### 7.1 Python（校验 X-BBot-Signature）
+#### 回调验签示例
+##### Python 验签
 ```python
 import hmac
 import hashlib
@@ -390,7 +414,7 @@ def verify_signature(payload_dict, sign_secret, header_signature):
     return hmac.compare_digest(expected, header_signature or "")
 ```
 
-##### 7.2 Node.js（校验 X-BBot-Signature）
+##### Node.js 验签
 ```javascript
 import crypto from "crypto";
 import stringify from "json-stable-stringify";
@@ -402,7 +426,7 @@ function verifySignature(payload, secret, headerSig) {
 }
 ```
 
-##### 7.3 Java（校验 X-BBot-Signature）
+##### Java 验签
 ```java
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -467,8 +491,7 @@ public class SignVerify {
 
 ## 插件开发
 
-本章包含：开发规范、Python 插件写法、Middleware API、JS 插件、ATM 兼容写法。
-
+阅读顺序：开发规范 → Python 插件 → Middleware 实践 / API 速查 → JS 插件 → Webhook。
 
 ### 开发规范
 - 中间遵循异步运行，插件调用时需使用await异步操作
@@ -476,10 +499,10 @@ public class SignVerify {
 - 插件文件名应使用下划线命名法
 - 规则名称应具有唯一性
 - 代码应包含适当的错误处理
-### 基本插件结构
+### Python 插件
 - 一些参数：platform: qq(ws对接的渠道)、web_ui(web端)
 
-#### Python 写法一（规则列表）
+#### 规则列表写法
 ```python
 """
 插件名称
@@ -522,7 +545,7 @@ rules = [
 ]
 
 ```
-#### Python 写法二（register 注册）
+#### register 注册写法
 ```python
 """
 插件名称
@@ -552,20 +575,20 @@ def register(middleware):
 
 ```
 
-##### 进阶指南（Middleware 实践）
+### Middleware 实践
 
 本文档旨在帮助开发者了解如何在 `B-BOT` 中创建和开发插件。插件是扩展机器人功能的核心。
 
-#### 1. 插件基础
+#### 插件基础
 插件本质上是一个遵循特定规范的 Python 模块，框架会自动加载并运行它。
 
 - **位置**: 所有插件都应放置在 `plugins/` 目录下。
 - **入口**: 框架会寻找并执行插件模块中的 `register` 函数来初始化插件。
 
-##### 关于计划任务怎么判断是否内部命令（两种方式）,搭配计划任务功能食用
+##### 计划任务与内部命令
 1、message.get("internal_source") = True(内部来源)
 2、message.get("platform") = internal(内部来源)
-##### 图片和视频（CQ码）
+##### 图片和视频（CQ 码）
 image: 类型base64数据,url
 video,record: url
 [CQ:image,file=base64://{image}]/[CQ:image,file={image}]
@@ -610,13 +633,13 @@ def register(middleware):
 
 ```
 
-#### 2. 如何使用 Middleware 功能
+#### Middleware 常用能力
 
 `Middleware` 对象是插件与框架交互的唯一桥梁。当框架调用你的 `register` 函数时，会将一个 `Middleware` 实例作为参数传递给你。你应该将其保存下来，以便在插件的其他地方使用。
 
 虽然在上面的简单示例中我们只在 `register` 函数里用了一次 `middleware`，但更复杂的插件可能需要在多个地方调用它。你可以将它保存在一个类或者全局变量中。
 
-##### 2.1 接收和响应消息
+##### 接收和响应消息
 
 最常见的插件功能是响应用户的消息。
 
@@ -636,7 +659,7 @@ def register(middleware):
     middleware.register_message_handler(echo_handler)
 ```
 
-##### 2.2 主动发送消息
+##### 主动发送消息
 
 除了被动响应，插件也可以主动向任何地方发送消息。
 
@@ -689,7 +712,7 @@ def register(middleware):
     middleware.register_message_handler(plugin.add_reminder_handler)
 ```
 
-##### 2.3 使用持久化存储 (Bucket)
+##### 持久化存储（Bucket）
 
 插件经常需要存储数据，例如用户配置、游戏得分等。`Middleware` 提供了基于 "Bucket" 的简单键值存储。
 
@@ -727,7 +750,7 @@ def register(middleware):
     print("计数器插件已加载。")
 ```
 
-##### 2.4 管理员权限
+##### 管理员权限
 
 你可以使用 `middleware` 来检查一个用户是否是管理员，从而创建只有管理员才能使用的命令。
 
@@ -760,7 +783,7 @@ def register(middleware):
     print("管理员插件已加载。")
 ```
 
-#### 3. 总结
+#### 小结
 
 通过 `middleware` 对象，插件可以实现强大而丰富的功能：
 1.  **创建 `register` 函数**作为插件入口。
@@ -1226,7 +1249,7 @@ def register(middleware):
 概述
 B-BOT 框架支持 JavaScript 插件，与 Python 插件共存。JS 插件存放在 `plugins/js/` 目录下(中间件函数查看js_plugin_runner.js或middleware.js),适配奥特曼插件写法
 
-#### JS插件编写方法一
+#### JS 写法一
 ```javascript
 //[disable:false]
 //[platform: qq,wx,tg,tb,web,wxmp]
@@ -1251,7 +1274,7 @@ sender.reply("签到成功！获得 10 积分。");
 ```
 
 
-#### JS插件编写方法二
+#### JS 写法二
 插件头
 | 字段 | JSDoc 格式 | 双斜杠格式 | 说明 | 示例 |
 |------|-----------|-----------|------|------|
@@ -1284,7 +1307,7 @@ module.exports = { handler };
 
 # 青龙调用,调用函数
 
-#### 方法一
+#### 青龙调用方法一
 
 ```python
 #插件填写下方路径,例子：
@@ -1365,7 +1388,7 @@ def enable_envs(self, ids: list):
 ```
 
 
-#### 方法二
+#### 青龙调用方法二
 
 ```python
 #插件填写下方路径
@@ -1431,7 +1454,7 @@ async def delete_env(self, env_ids: List[Any]) -> bool:
     return result is not None
 ```
 
-##### ATM 风格插件写法（兼容）
+#### ATM 兼容写法
 
 1) 两种插件模式
 b-bot（推荐）：使用 middleware/middleware.py 提供的异步能力,也就是上面的方法。
@@ -1549,7 +1572,7 @@ if __name__ == "__main__":
     mw_obj = ctx.get("middleware")
 
 ```
-#### 奥特曼中间件
+#### 奥特曼中间件 API
 ```
 
 def pip_install(module:str):
@@ -1994,22 +2017,149 @@ class Sender:
 
 ---
 
+### 插件 Webhook
+
+B-BOT 已支持插件级 Webhook 路由，固定格式：
+
+```text
+/api/plugins/<plugin_name>/webhook
+```
+
+例如插件文件是 `plugins/my_webhook.py`，那么地址就是：
+
+```text
+/api/plugins/my_webhook/webhook
+```
+
+#### 函数约定
+
+插件中实现函数 `handle_webhook(...)` 即可被调用，建议签名如下：
+
+```python
+def handle_webhook(
+    data=None,
+    request_method="POST",
+    request_headers=None,
+    request_content_type="",
+    request_path="",
+    request_query=None,
+    raw_body="",
+):
+    ...
+```
+
+说明：
+- `data`: 框架自动解析后的请求数据（优先 JSON，其次 form，再次 query/raw）
+- `request_headers`: 请求头字典
+- `request_query`: URL query 参数字典
+- `raw_body`: 原始 body 文本
+
+#### 返回值规范
+
+`handle_webhook` 支持以下返回：
+- 返回 `("文本", 状态码)`，例如 `("success", 200)`
+- 返回 `(dict, 状态码)`，框架会自动转 JSON
+- 仅返回 `dict`，默认状态码 200
+- 返回 `None`，框架默认返回 `{"code":200,"msg":"ok"}`
+
+#### 最小可用示例
+
+```python
+# plugins/demo_webhook.py
+__description__ = "Webhook示例插件"
+__version__ = "1.0.0"
+__author__ = "B-BOT"
+
+
+def handle_webhook(
+    data=None,
+    request_method="POST",
+    request_headers=None,
+    request_content_type="",
+    request_path="",
+    request_query=None,
+    raw_body="",
+):
+    payload = dict(data or {})
+    return {
+        "success": True,
+        "message": "Webhook received",
+        "method": request_method,
+        "path": request_path,
+        "payload": payload,
+    }
+```
+
+测试：
+
+```bash
+curl -X POST "http://127.0.0.1:5000/api/plugins/demo_webhook/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{"event":"ping","ts":123}'
+```
+
+#### 签名校验示例
+
+```python
+# plugins/secure_webhook.py
+import hashlib
+
+__description__ = "带签名校验的Webhook示例"
+__version__ = "1.0.0"
+__author__ = "B-BOT"
+
+
+def _md5(s: str) -> str:
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+
+def handle_webhook(
+    data=None,
+    request_method="POST",
+    request_headers=None,
+    request_content_type="",
+    request_path="",
+    request_query=None,
+    raw_body="",
+):
+    payload = dict(data or {})
+
+    # 你的固定密钥（建议改为从 bucket 配置读取）
+    secret = "replace_with_your_secret"
+
+    received_sign = str(payload.get("sign", "") or "")
+    if not received_sign:
+        return {"success": False, "message": "missing sign"}, 400
+
+    # 示例签名规则：对 raw_body + secret 做 md5
+    expected_sign = _md5((raw_body or "") + secret)
+    if received_sign.lower() != expected_sign.lower():
+        return {"success": False, "message": "bad sign"}, 403
+
+    # 业务处理
+    return {"success": True, "message": "ok"}, 200
+```
+
+#### 实战建议
+
+- Webhook 插件尽量写成“幂等”：同一个回调重复到达时不重复执行关键动作。
+- 强烈建议做签名校验、时间戳校验、IP 白名单（至少做前两项）。
+- 外部请求必须加超时，避免阻塞。
+- 若要持久化数据，优先使用 `bucket` 存储。
+
+
+---
+
 ## AI 大脑
 
 配置、模型、知识库、技能、工作流、定时任务与排错说明。
 
+> 入口：Web 管理后台左侧菜单「AI 大脑」。
+>
+> 阅读顺序：功能总览 → 配置中心 → 技能中心 → 知识中心 → 工作流中心 → AI 定时任务 → 调用链路 → 排错 → 知识库导出。
 
-本节为 `AI大脑` 的完整使用说明，包含：
-- 配置中心
-- 技能中心
-- 知识中心
-- 工作流中心
-- AI定时任务
-- 调用路径与常见问题
 
-> 入口：Web 管理后台左侧菜单 `AI大脑`。
-
-### 1. 功能总览
+### 功能总览
 
 AI大脑提供两类能力：
 1. 在线对话能力：插件或聊天入口触发 `/api/ai/chat`。
@@ -2025,15 +2175,15 @@ AI大脑提供两类能力：
 
 ---
 
-### 2. 配置中心
+### 配置中心
 
-#### 2.1 基础开关
+#### 基础开关
 - `启用 AI 大脑`：总开关。
 - `启用 MCP`：允许调用 MCP 工具。
 - `启用技能`：启用技能提示词/技能集合。
 - `启用知识库`：启用知识检索增强。
 
-#### 2.2 模型参数
+#### 模型参数
 主要字段：
 - `provider`
 - `base_url`
@@ -2049,7 +2199,7 @@ AI大脑提供两类能力：
 - 可 `应用` 指定模型作为当前生效模型。
 - 支持累计 Token 展示。
 
-#### 2.3 模型生效逻辑
+#### 模型生效逻辑
 - 运行时默认使用“已保存且启用”的模型。
 - 优先使用当前 active 模型。
 - 若当前模型失败（429/5xx/超时/网络错误）会自动 failover 到其他启用模型。
@@ -2057,7 +2207,7 @@ AI大脑提供两类能力：
 
 ---
 
-### 3. 技能中心
+### 技能中心
 
 支持能力：
 - 填写技能列表（`&` 或换行分隔）
@@ -2072,7 +2222,7 @@ AI大脑提供两类能力：
 
 ---
 
-### 4. 知识中心
+### 知识中心
 
 支持能力：
 - 文本批量导入（自动切片）
@@ -2088,15 +2238,15 @@ AI大脑提供两类能力：
 
 ---
 
-### 5. 工作流中心
+### 工作流中心
 
-#### 5.1 节点类型（MVP）
+#### 节点类型
 - `knowledge`：知识检索
 - `mcp`：MCP 工具调用
 - `llm`：模型调用
 - `condition`：条件分支
 
-#### 5.2 可视化编辑能力
+#### 可视化编辑
 - 大画布（缩放、平移、适配视图）
 - 节点自由拖动
 - 拖线连边（next / true_next / false_next）
@@ -2104,13 +2254,13 @@ AI大脑提供两类能力：
 - 左侧节点库、右侧属性面板
 - JSON 与可视化双向同步
 
-#### 5.3 变量模板
+#### 变量模板
 工作流中可使用：
 - `{{input}}`
 - `{{last}}`
 - `{{vars.xxx}}`
 
-#### 5.4 运行接口
+#### 运行接口
 - 列表：`GET /api/ai/workflows`
 - 保存：`POST /api/ai/workflows`
 - 详情：`GET /api/ai/workflows/<id>`
@@ -2129,94 +2279,7 @@ AI大脑提供两类能力：
 
 ---
 
-### 6. AI定时任务（独立二级菜单）
-
-> 入口：`AI大脑 -> AI定时任务`
-
-用于定时自动执行 AI，并推送到指定适配器目标。
-
-#### 6.1 配置字段
-- `名称`：任务名
-- `Cron`：5段 cron 表达式
-- `适配器`：例如 `tgbot` / `web_ui` / 其他已接入适配器
-- `目标类型`：`user` 私聊 / `group` 群聊
-- `目标ID`：用户ID或群ID
-- `工作流ID（可选）`
-- `固定 Prompt`
-- `vars(JSON，可选)`
-
-规则：
-- `工作流ID` 与 `固定 Prompt` 至少填一个。
-- 若填了 `工作流ID`，优先按工作流执行。
-- 若未填工作流，则直接调用当前启用模型执行 prompt。
-
-#### 6.2 批量功能
-已支持：
-- 批量启用
-- 批量禁用
-
-#### 6.3 任务接口
-- 列表：`GET /api/ai/schedule/tasks`
-- 保存：`POST /api/ai/schedule/tasks`
-- 启停：`POST /api/ai/schedule/tasks/<id>/toggle`
-- 删除：`DELETE /api/ai/schedule/tasks/<id>`
-- 立即运行：`POST /api/ai/schedule/tasks/<id>/run`
-
----
-
-### 7. 调用链路说明
-
-#### 7.1 在线 AI 对话链路
-1. 收到消息
-2. 进入 AI 配置（模型/技能/MCP/知识）
-3. 调用模型（必要时 failover）
-4. 输出回复到当前会话
-
-#### 7.2 AI 定时任务链路
-1. APScheduler 到点触发 `run_ai_scheduled_job(task_id)`
-2. 读取任务配置（prompt/workflow/adapter/target）
-3. 执行工作流或单次 LLM
-4. 调用 middleware 推送：
-   - 群：`push_to_group(adapter, group_id, content)`
-   - 私聊：`push_to_user(adapter, user_id, content)`
-
----
-
-### 8. 常见问题
-
-#### 8.1 模型测试通过，但实际调用失败
-请检查：
-- 是否已“保存并启用”模型
-- active 模型是否是你预期的那个
-- base_url 是否与模型协议匹配（OpenAI 兼容）
-
-#### 8.2 工作流运行无输出
-请检查：
-- 是否配置了 `output_var` / `next`
-- 条件分支是否指向存在的节点 ID
-- 最后节点是否将结果写入 `last`（默认会）
-
-#### 8.3 定时任务到了不推送
-请检查：
-- 任务是否启用
-- 适配器是否启用
-- target_id 是否正确
-- 该适配器是否支持对应推送方法（群/私聊）
-
----
-
-### 9. 版本建议
-
-若升级后出现旧配置异常，建议按顺序排查：
-1. 配置中心重新保存一次 AI 配置
-2. 检查模型列表启用状态
-3. 检查工作流节点 ID 唯一性
-4. 检查 AI 定时任务的 adapter/target_type/target_id
-
-
----
-
-### 工作流进阶手册（字段、变量、完整示例）
+### 工作流进阶手册
 
 > 本节是「工作流中心」的详细操作手册，可直接按此配置。
 
@@ -2252,9 +2315,9 @@ AI大脑提供两类能力：
 
 ---
 
-#### 各节点详细填写说明
+#### 各节点填写说明
 
-#### 3.1 `knowledge` 节点（知识检索）
+#### knowledge 节点
 字段：
 - `query`：检索词，支持模板（常用 `{{input}}`）。
 - `bucket`：知识桶名，留空会用 AI 配置里的默认知识桶。
@@ -2272,7 +2335,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 3.2 `llm` 节点（大模型调用）
+#### llm 节点
 字段：
 - `prompt`：用户提示词，支持模板变量。
 - `system_prompt`：可选，覆盖全局系统提示。
@@ -2288,7 +2351,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 3.3 `mcp` 节点（工具调用）
+#### mcp 节点
 字段：
 - `server_url`：MCP 服务地址（可留空，系统会选已启用 MCP 服务器中的第一个）。
 - `tool`：工具名（必填）。
@@ -2304,7 +2367,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 3.4 `condition` 节点（条件判断）
+#### condition 节点
 字段：
 - `expr`：条件表达式（返回 true/false）。
 - `true_next`：条件为真跳转节点。
@@ -2346,7 +2409,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 可直接使用的完整示例
+#### 完整示例
 
 场景：
 - 先查知识库。
@@ -2427,14 +2490,14 @@ AI大脑提供两类能力：
 
 > 目标：3分钟内做出“可运行、可分支、可复用”的 AI 工作流。
 
-#### 第0步：进入页面（10秒）
+#### 第 0 步：进入页面
 1. 打开 Web 后台。
 2. 左侧点击：`AI大脑 -> 工作流中心`。
 3. 确认你已经在“可视化节点编排”区域。
 
 ---
 
-#### 第1步：新建工作流（20秒）
+#### 第 1 步：新建工作流
 1. 点击 `新建`。
 2. 在“工作流名称”输入：`demo_kb_answer`。
 3. `起始节点ID`先留空（默认从第一个节点开始）。
@@ -2442,7 +2505,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 第2步：添加节点（40秒）
+#### 第 2 步：添加节点
 1. 在左侧“节点库”依次点击：
    - `+ 知识节点`
    - `+ 条件节点`
@@ -2459,7 +2522,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 第3步：连线（30秒）
+#### 第 3 步：连线
 用拖线手柄连接：
 1. 从 `k1` 的 `N` 手柄拖到 `c1`。
 2. 从 `c1` 的 `T` 手柄拖到 `l1`。
@@ -2470,7 +2533,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 第4步：填写关键字段（50秒）
+#### 第 4 步：填写关键字段
 
 1. 选中 `k1`（knowledge）并填写：
 - `query`: `{{input}}`
@@ -2496,7 +2559,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 第5步：保存与运行（20秒）
+#### 第 5 步：保存与运行
 1. 点击 `保存工作流`（顶部或编辑区按钮都可以）。
 2. 在“运行调试 -> 输入”中填：`今天值班流程是什么？`
 3. 点击 `运行工作流`。
@@ -2504,7 +2567,7 @@ AI大脑提供两类能力：
 
 ---
 
-#### 第6步：接入 AI定时任务（30秒）
+#### 第 6 步：接入 AI 定时任务
 1. 左侧切到：`AI大脑 -> AI定时任务`。
 2. 新建任务填写：
 - 名称：`daily_report`
@@ -2518,7 +2581,7 @@ AI大脑提供两类能力：
 
 ---
 
-### 快速排错（建议收藏）
+### 工作流快速排错
 
 - 运行报 `next 不存在`：检查节点 ID 是否拼写一致。
 - 运行报 `未找到可用模型`：去配置中心确认有“已启用模型”。
@@ -2527,7 +2590,7 @@ AI大脑提供两类能力：
 
 ---
 
-### 3分钟结果验收标准
+### 工作流验收标准
 
 满足以下3条就算成功：
 1. 工作流能在“运行调试”返回文本输出。
@@ -2536,7 +2599,94 @@ AI大脑提供两类能力：
 
 ---
 
-## 知识库导出 / 导入
+### AI 定时任务
+
+> 入口：`AI大脑 -> AI定时任务`
+
+用于定时自动执行 AI，并推送到指定适配器目标。
+
+#### 配置字段
+- `名称`：任务名
+- `Cron`：5段 cron 表达式
+- `适配器`：例如 `tgbot` / `web_ui` / 其他已接入适配器
+- `目标类型`：`user` 私聊 / `group` 群聊
+- `目标ID`：用户ID或群ID
+- `工作流ID（可选）`
+- `固定 Prompt`
+- `vars(JSON，可选)`
+
+规则：
+- `工作流ID` 与 `固定 Prompt` 至少填一个。
+- 若填了 `工作流ID`，优先按工作流执行。
+- 若未填工作流，则直接调用当前启用模型执行 prompt。
+
+#### 批量功能
+已支持：
+- 批量启用
+- 批量禁用
+
+#### 任务接口
+- 列表：`GET /api/ai/schedule/tasks`
+- 保存：`POST /api/ai/schedule/tasks`
+- 启停：`POST /api/ai/schedule/tasks/<id>/toggle`
+- 删除：`DELETE /api/ai/schedule/tasks/<id>`
+- 立即运行：`POST /api/ai/schedule/tasks/<id>/run`
+
+---
+
+### 调用链路
+
+#### 在线对话链路
+1. 收到消息
+2. 进入 AI 配置（模型/技能/MCP/知识）
+3. 调用模型（必要时 failover）
+4. 输出回复到当前会话
+
+#### 定时任务链路
+1. APScheduler 到点触发 `run_ai_scheduled_job(task_id)`
+2. 读取任务配置（prompt/workflow/adapter/target）
+3. 执行工作流或单次 LLM
+4. 调用 middleware 推送：
+   - 群：`push_to_group(adapter, group_id, content)`
+   - 私聊：`push_to_user(adapter, user_id, content)`
+
+---
+
+### AI 常见问题
+
+#### 模型测试通过但实际调用失败
+请检查：
+- 是否已“保存并启用”模型
+- active 模型是否是你预期的那个
+- base_url 是否与模型协议匹配（OpenAI 兼容）
+
+#### 工作流运行无输出
+请检查：
+- 是否配置了 `output_var` / `next`
+- 条件分支是否指向存在的节点 ID
+- 最后节点是否将结果写入 `last`（默认会）
+
+#### 定时任务到了不推送
+请检查：
+- 任务是否启用
+- 适配器是否启用
+- target_id 是否正确
+- 该适配器是否支持对应推送方法（群/私聊）
+
+---
+
+### 版本建议
+
+若升级后出现旧配置异常，建议按顺序排查：
+1. 配置中心重新保存一次 AI 配置
+2. 检查模型列表启用状态
+3. 检查工作流节点 ID 唯一性
+4. 检查 AI 定时任务的 adapter/target_type/target_id
+
+
+---
+
+### 知识库导出 / 导入
 
 统一知识包格式：`.bbotkb`（本质 zip）
 
@@ -2561,142 +2711,9 @@ POST /api/ai/knowledge/import_package   # form: file, bucket, conflict, agent_id
 
 ---
 
-## 插件 Webhook
-
-B-BOT 已支持插件级 Webhook 路由，固定格式：
-
-```text
-/api/plugins/<plugin_name>/webhook
-```
-
-例如插件文件是 `plugins/my_webhook.py`，那么地址就是：
-
-```text
-/api/plugins/my_webhook/webhook
-```
-
-### 1. 插件函数约定
-
-插件中实现函数 `handle_webhook(...)` 即可被调用，建议签名如下：
-
-```python
-def handle_webhook(
-    data=None,
-    request_method="POST",
-    request_headers=None,
-    request_content_type="",
-    request_path="",
-    request_query=None,
-    raw_body="",
-):
-    ...
-```
-
-说明：
-- `data`: 框架自动解析后的请求数据（优先 JSON，其次 form，再次 query/raw）
-- `request_headers`: 请求头字典
-- `request_query`: URL query 参数字典
-- `raw_body`: 原始 body 文本
-
-### 2. 返回值规范
-
-`handle_webhook` 支持以下返回：
-- 返回 `("文本", 状态码)`，例如 `("success", 200)`
-- 返回 `(dict, 状态码)`，框架会自动转 JSON
-- 仅返回 `dict`，默认状态码 200
-- 返回 `None`，框架默认返回 `{"code":200,"msg":"ok"}`
-
-### 3. 最小可用示例（建议先用这个验证）
-
-```python
-# plugins/demo_webhook.py
-__description__ = "Webhook示例插件"
-__version__ = "1.0.0"
-__author__ = "B-BOT"
-
-
-def handle_webhook(
-    data=None,
-    request_method="POST",
-    request_headers=None,
-    request_content_type="",
-    request_path="",
-    request_query=None,
-    raw_body="",
-):
-    payload = dict(data or {})
-    return {
-        "success": True,
-        "message": "Webhook received",
-        "method": request_method,
-        "path": request_path,
-        "payload": payload,
-    }
-```
-
-测试：
-
-```bash
-curl -X POST "http://127.0.0.1:5000/api/plugins/demo_webhook/webhook" \
-  -H "Content-Type: application/json" \
-  -d '{"event":"ping","ts":123}'
-```
-
-### 4. 签名校验示例（生产建议）
-
-```python
-# plugins/secure_webhook.py
-import hashlib
-
-__description__ = "带签名校验的Webhook示例"
-__version__ = "1.0.0"
-__author__ = "B-BOT"
-
-
-def _md5(s: str) -> str:
-    return hashlib.md5(s.encode("utf-8")).hexdigest()
-
-
-def handle_webhook(
-    data=None,
-    request_method="POST",
-    request_headers=None,
-    request_content_type="",
-    request_path="",
-    request_query=None,
-    raw_body="",
-):
-    payload = dict(data or {})
-
-    # 你的固定密钥（建议改为从 bucket 配置读取）
-    secret = "replace_with_your_secret"
-
-    received_sign = str(payload.get("sign", "") or "")
-    if not received_sign:
-        return {"success": False, "message": "missing sign"}, 400
-
-    # 示例签名规则：对 raw_body + secret 做 md5
-    expected_sign = _md5((raw_body or "") + secret)
-    if received_sign.lower() != expected_sign.lower():
-        return {"success": False, "message": "bad sign"}, 403
-
-    # 业务处理
-    return {"success": True, "message": "ok"}, 200
-```
-
-### 5. 实战建议
-
-- Webhook 插件尽量写成“幂等”：同一个回调重复到达时不重复执行关键动作。
-- 强烈建议做签名校验、时间戳校验、IP 白名单（至少做前两项）。
-- 外部请求必须加超时，避免阻塞。
-- 若要持久化数据，优先使用 `bucket` 存储。
-
-
----
-
 ## 内置支付系统
 
-### 概述
+### 支付概述
 
 内置支付系统（alipay_pay）已集成到 Middleware 中，插件可直接通过 `middleware` 对象调用支付功能，无需导入任何支付模块。
 
@@ -3089,3 +3106,4 @@ if __name__ == '__main__':
 | 适配器连不上 | Token/回调地址/代理；查看系统日志与适配器状态 |
 | 内置青龙任务不跑 | 任务是否启用、Cron 表达式、脚本是否存在、依赖是否安装 |
 | Docker 更新后数据丢 | 确认 `data` 卷挂载路径正确，更新前先备份 |
+
