@@ -5,8 +5,8 @@
 一个可通过 AI 驱动的机器人框架（Python 实现），具备多协议接入、插件化架构、规则引擎、持久化存储、可视化管理面板与 Agent 能力。
 
 - 当前版本：**1.1.2**
-- 配套安卓 APP：`1.0.4`  
-  https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk
+- 配套安卓 APP：`1.0.5`  
+  [https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk](https://github.com/241793/B-Bot-App/releases/download/1.0.5/B-BOT1.0.5.apk)
 - Win 版已停更（0.0.9）
 
 <img width="1855" height="827" alt="image" src="https://github.com/user-attachments/assets/6730a9bf-acb3-4852-8aec-e874af20e620" />
