@@ -1,1028 +1,579 @@
-// ===== Particle Background =====
-class ParticleSystem {
-    constructor() {
-        this.canvas = document.getElementById('particles-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.particles = [];
-        this.maxParticles = 100;
-        this.connectionDistance = 150;
-        this.maxConnections = 3;
-        
-        this.init();
+(() => {
+  "use strict";
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  // ----- Particles (light) -----
+  class Particles {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext("2d");
+      this.dots = [];
+      this.max = 56;
+      this.resize();
+      this.spawn();
+      this.loop = this.loop.bind(this);
+      requestAnimationFrame(this.loop);
+      window.addEventListener("resize", () => this.resize());
     }
-    
-    init() {
-        this.resize();
-        this.createParticles();
-        this.animate();
-        
-        window.addEventListener('resize', () => this.resize());
-    }
-    
     resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+      this.canvas.width = window.innerWidth;
+      this.canvas.height = window.innerHeight;
     }
-    
-    createParticles() {
-        for (let i = 0; i < this.maxParticles; i++) {
-            this.particles.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                vx: (Math.random() - 0.5) * 0.5,
-                vy: (Math.random() - 0.5) * 0.5,
-                radius: Math.random() * 2 + 1,
-                opacity: Math.random() * 0.5 + 0.2
-            });
+    spawn() {
+      this.dots = Array.from({ length: this.max }, () => ({
+        x: Math.random() * this.canvas.width,
+        y: Math.random() * this.canvas.height,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        r: Math.random() * 1.6 + 0.6,
+        a: Math.random() * 0.35 + 0.15,
+      }));
+    }
+    loop() {
+      const { ctx, canvas, dots } = this;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < dots.length; i++) {
+        const p = dots[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(34, 211, 238, ${p.a})`;
+        ctx.fill();
+        for (let j = i + 1; j < dots.length; j++) {
+          const q = dots[j];
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const d = Math.hypot(dx, dy);
+          if (d < 120) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.strokeStyle = `rgba(129, 140, 248, ${(1 - d / 120) * 0.18})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
         }
+      }
+      requestAnimationFrame(this.loop);
     }
-    
-    animate() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Update and draw particles
-        this.particles.forEach((particle, i) => {
-            // Update position
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            
-            // Wrap around edges
-            if (particle.x < 0) particle.x = this.canvas.width;
-            if (particle.x > this.canvas.width) particle.x = 0;
-            if (particle.y < 0) particle.y = this.canvas.height;
-            if (particle.y > this.canvas.height) particle.y = 0;
-            
-            // Draw particle
-            this.ctx.beginPath();
-            this.ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-            this.ctx.fillStyle = `rgba(0, 212, 255, ${particle.opacity})`;
-            this.ctx.fill();
-            
-            // Draw connections
-            let connections = 0;
-            for (let j = i + 1; j < this.particles.length; j++) {
-                if (connections >= this.maxConnections) break;
-                
-                const other = this.particles[j];
-                const dx = particle.x - other.x;
-                const dy = particle.y - other.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < this.connectionDistance) {
-                    const opacity = (1 - distance / this.connectionDistance) * 0.3;
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(particle.x, particle.y);
-                    this.ctx.lineTo(other.x, other.y);
-                    this.ctx.strokeStyle = `rgba(0, 212, 255, ${opacity})`;
-                    this.ctx.lineWidth = 0.5;
-                    this.ctx.stroke();
-                    connections++;
-                }
-            }
-        });
-        
-        requestAnimationFrame(() => this.animate());
-    }
-}
+  }
 
-// ===== Counter Animation =====
-class CounterAnimation {
-    constructor() {
-        this.counters = document.querySelectorAll('.stat-number');
-        this.duration = 2000;
-        this.init();
-    }
-    
-    init() {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    this.animate(entry.target);
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.5 });
-        
-        this.counters.forEach(counter => observer.observe(counter));
-    }
-    
-    animate(counter) {
-        const target = parseInt(counter.getAttribute('data-count'));
-        const start = 0;
-        const startTime = performance.now();
-        
-        const update = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / this.duration, 1);
-            
-            // Easing function
-            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-            const current = Math.floor(easeOutQuart * (target - start) + start);
-            
-            counter.textContent = current;
-            
-            if (progress < 1) {
-                requestAnimationFrame(update);
-            } else {
-                counter.textContent = target;
-            }
-        };
-        
-        requestAnimationFrame(update);
-    }
-}
+  // ----- Helpers -----
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
-// ===== Feature Filter =====
-class FeatureFilter {
-    constructor() {
-        this.filterBtns = document.querySelectorAll('.filter-btn');
-        this.featureCards = document.querySelectorAll('.feature-card');
-        this.init();
-    }
-    
-    init() {
-        this.filterBtns.forEach(btn => {
-            btn.addEventListener('click', () => this.filter(btn));
+  function animateCounters(root = document) {
+    const nodes = $$(".stat-number", root);
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          const target = Number(el.getAttribute("data-count") || 0);
+          const start = performance.now();
+          const dur = 1400;
+          const tick = (now) => {
+            const p = Math.min(1, (now - start) / dur);
+            const eased = 1 - Math.pow(1 - p, 4);
+            el.textContent = String(Math.floor(eased * target));
+            if (p < 1) requestAnimationFrame(tick);
+            else el.textContent = String(target);
+          };
+          requestAnimationFrame(tick);
+          obs.unobserve(el);
         });
-    }
-    
-    filter(activeBtn) {
-        const filter = activeBtn.getAttribute('data-filter');
-        
-        // Update active button
-        this.filterBtns.forEach(btn => btn.classList.remove('active'));
-        activeBtn.classList.add('active');
-        
-        // Filter cards
-        this.featureCards.forEach(card => {
-            const category = card.getAttribute('data-category');
-            
-            if (filter === 'all' || category === filter) {
-                card.style.display = 'block';
-                card.style.animation = 'fadeInUp 0.6s ease-out forwards';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    }
-}
+      },
+      { threshold: 0.4 }
+    );
+    nodes.forEach((n) => obs.observe(n));
+  }
 
-// ===== Theme Toggle =====
-class ThemeToggle {
-    constructor() {
-        this.toggle = document.getElementById('theme-toggle');
-        this.icon = this.toggle.querySelector('i');
-        this.currentTheme = localStorage.getItem('theme') || 'dark';
-        this.init();
-    }
-    
-    init() {
-        document.documentElement.setAttribute('data-theme', this.currentTheme);
-        this.updateIcon();
-        
-        this.toggle.addEventListener('click', () => this.toggleTheme());
-    }
-    
-    toggleTheme() {
-        this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', this.currentTheme);
-        localStorage.setItem('theme', this.currentTheme);
-        this.updateIcon();
-    }
-    
-    updateIcon() {
-        this.icon.className = this.currentTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-    }
-}
+  function setupReveal() {
+    const els = $$(".feature-card, .shot-card, .plugin-card, .ai-card, .download-card, .docs-layout");
+    els.forEach((el) => el.classList.add("reveal"));
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in");
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+    );
+    els.forEach((el) => obs.observe(el));
+  }
 
-// ===== Mobile Menu =====
-class MobileMenu {
-    constructor() {
-        this.menuBtn = document.getElementById('mobile-menu-btn');
-        this.navLinks = document.querySelector('.nav-links');
-        this.init();
-    }
-    
-    init() {
-        this.menuBtn.addEventListener('click', () => this.toggle());
-        
-        // Close menu when clicking a link
-        document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => this.close());
-        });
-    }
-    
-    toggle() {
-        this.navLinks.classList.toggle('active');
-        const icon = this.menuBtn.querySelector('i');
-        icon.className = this.navLinks.classList.contains('active') ? 'fas fa-times' : 'fas fa-bars';
-    }
-    
-    close() {
-        this.navLinks.classList.remove('active');
-        this.menuBtn.querySelector('i').className = 'fas fa-bars';
-    }
-}
+  function setupNav() {
+    const nav = $("#navbar");
+    const links = $("#nav-links");
+    const btn = $("#mobile-menu-btn");
+    const toTop = $("#to-top");
 
-// ===== Smooth Scroll =====
-class SmoothScroll {
-    constructor() {
-        this.links = document.querySelectorAll('a[href^="#"]');
-        this.init();
-    }
-    
-    init() {
-        this.links.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const target = document.querySelector(link.getAttribute('href'));
-                if (target) {
-                    const offset = 80; // Navbar height
-                    const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - offset;
-                    window.scrollTo({
-                        top: targetPosition,
-                        behavior: 'smooth'
-                    });
-                }
-            });
-        });
-    }
-}
+    window.addEventListener("scroll", () => {
+      nav.classList.toggle("scrolled", window.scrollY > 24);
+      toTop.classList.toggle("show", window.scrollY > 420);
+    });
 
-// ===== Navbar Scroll Effect =====
-class NavbarScroll {
-    constructor() {
-        this.navbar = document.querySelector('.navbar');
-        this.init();
-    }
-    
-    init() {
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 50) {
-                this.navbar.style.background = 'rgba(10, 10, 15, 0.95)';
-                this.navbar.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3)';
-            } else {
-                this.navbar.style.background = 'rgba(10, 10, 15, 0.8)';
-                this.navbar.style.boxShadow = 'none';
-            }
-        });
-    }
-}
+    btn?.addEventListener("click", () => {
+      links.classList.toggle("open");
+      const icon = btn.querySelector("i");
+      icon.className = links.classList.contains("open") ? "fas fa-times" : "fas fa-bars";
+    });
 
-// ===== Active Section Highlight =====
-class ActiveSection {
-    constructor() {
-        this.sections = document.querySelectorAll('section[id]');
-        this.navLinks = document.querySelectorAll('.nav-links a');
-        this.init();
-    }
-    
-    init() {
-        window.addEventListener('scroll', () => this.highlight());
-    }
-    
-    highlight() {
-        const scrollY = window.pageYOffset;
-        
-        this.sections.forEach(section => {
-            const sectionHeight = section.offsetHeight;
-            const sectionTop = section.offsetTop - 100;
-            const sectionId = section.getAttribute('id');
-            
-            if (scrollY > sectionTop && scrollY <= sectionTop + sectionHeight) {
-                this.navLinks.forEach(link => {
-                    link.classList.remove('active');
-                    if (link.getAttribute('href') === `#${sectionId}`) {
-                        link.classList.add('active');
-                    }
-                });
-            }
-        });
-    }
-}
+    $$("#nav-links a").forEach((a) => {
+      a.addEventListener("click", () => {
+        links.classList.remove("open");
+        const icon = btn?.querySelector("i");
+        if (icon) icon.className = "fas fa-bars";
+      });
+    });
 
-// ===== Copy Code =====
-class CopyCode {
-    constructor() {
-        this.copyBtns = document.querySelectorAll('.copy-btn');
-        this.init();
-    }
-    
-    init() {
-        this.copyBtns.forEach(btn => {
-            btn.addEventListener('click', () => this.copy(btn));
-        });
-    }
-    
-    copy(btn) {
-        const codeBlock = btn.closest('.code-block') || btn.closest('.code-preview');
-        const code = codeBlock.querySelector('code').textContent;
-        
-        navigator.clipboard.writeText(code).then(() => {
-            const originalIcon = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check"></i>';
-            btn.style.color = '#00d4ff';
-            
-            setTimeout(() => {
-                btn.innerHTML = originalIcon;
-                btn.style.color = '';
-            }, 2000);
-        });
-    }
-}
+    // smooth anchors
+    $$('a[href^="#"]').forEach((a) => {
+      a.addEventListener("click", (e) => {
+        const id = a.getAttribute("href");
+        if (!id || id === "#") return;
+        const target = document.querySelector(id);
+        if (!target) return;
+        e.preventDefault();
+        const y = target.getBoundingClientRect().top + window.pageYOffset - 76;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      });
+    });
 
-// ===== Docs Navigation =====
-class DocsNavigation {
-    constructor() {
-        this.docsNavItems = document.querySelectorAll('.docs-nav-item');
-        this.docSections = document.querySelectorAll('.doc-section');
-        this.init();
-    }
-    
-    init() {
-        this.docsNavItems.forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetId = item.querySelector('a').getAttribute('href');
-                this.navigate(targetId);
-                this.setActive(item);
-            });
-        });
-    }
-    
-    navigate(targetId) {
-        const target = document.querySelector(targetId);
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // active section
+    const sections = $$("section[id], header[id]");
+    const navAs = $$("#nav-links a");
+    window.addEventListener("scroll", () => {
+      const y = window.pageYOffset;
+      sections.forEach((sec) => {
+        const top = sec.offsetTop - 110;
+        const h = sec.offsetHeight;
+        const id = sec.id;
+        if (y >= top && y < top + h) {
+          navAs.forEach((a) => {
+            a.classList.toggle("active", a.getAttribute("href") === `#${id}`);
+          });
         }
-    }
-    
-    setActive(activeItem) {
-        this.docsNavItems.forEach(item => item.classList.remove('active'));
-        activeItem.classList.add('active');
-    }
-}
+      });
+    });
 
-// ===== Scroll Reveal Animation =====
-class ScrollReveal {
-    constructor() {
-        this.elements = document.querySelectorAll('.feature-card, .ai-card, .plugin-mode-card, .download-card');
-        this.init();
-    }
-    
-    init() {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        }, {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        });
-        
-        this.elements.forEach(el => {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(30px)';
-            el.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
-            observer.observe(el);
-        });
-    }
-}
+    toTop?.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+  }
 
-// ===== Typing Effect =====
-class TypingEffect {
-    constructor() {
-        this.element = document.querySelector('.hero-subtitle');
-        this.text = this.element ? this.element.textContent : '';
-        this.speed = 50;
-        this.init();
-    }
-    
-    init() {
-        if (!this.element) return;
-        
-        this.element.textContent = '';
-        this.element.style.borderRight = '2px solid #00d4ff';
-        this.element.style.paddingRight = '5px';
-        
-        let i = 0;
-        const type = () => {
-            if (i < this.text.length) {
-                this.element.textContent += this.text.charAt(i);
-                i++;
-                setTimeout(type, this.speed);
-            } else {
-                // Remove cursor after typing
-                setTimeout(() => {
-                    this.element.style.borderRight = 'none';
-                }, 1000);
-            }
-        };
-        
-        // Start typing after a delay
-        setTimeout(type, 500);
-    }
-}
+  function setupTheme() {
+    const btn = $("#theme-toggle");
+    const icon = btn?.querySelector("i");
+    let theme = localStorage.getItem("bbot-site-theme") || "dark";
+    const apply = () => {
+      document.documentElement.setAttribute("data-theme", theme);
+      if (icon) icon.className = theme === "dark" ? "fas fa-moon" : "fas fa-sun";
+    };
+    apply();
+    btn?.addEventListener("click", () => {
+      theme = theme === "dark" ? "light" : "dark";
+      localStorage.setItem("bbot-site-theme", theme);
+      apply();
+    });
+  }
 
-// ===== Config Loader =====
-class ConfigLoader {
-    constructor() {
-        this.config = null;
+  // ----- Render from config -----
+  function renderHero(cfg) {
+    const site = cfg.site || {};
+    const hero = cfg.hero || {};
+    document.title = `${site.name || "B-BOT"} - ${site.title || ""}`;
+    $("#nav-version").textContent = `v${site.version || "1.1.2"}`;
+    $("#hero-badge-text").textContent = hero.badge || "";
+    if (Array.isArray(hero.title)) {
+      $("#hero-title-0").textContent = hero.title[0] || "";
+      $("#hero-title-1").textContent = hero.title[1] || "";
     }
-    
-    async load() {
-        try {
-            const response = await fetch('config.json');
-            if (!response.ok) {
-                throw new Error('Failed to load config');
-            }
-            this.config = await response.json();
-            this.renderContent();
-            return this.config;
-        } catch (error) {
-            console.error('Error loading config:', error);
-            return null;
-        }
-    }
-    
-    renderContent() {
-        if (!this.config) return;
-        
-        // Update site title
-        document.title = `${this.config.site.name} - ${this.config.site.title}`;
-        
-        // Update hero section
-        this.updateHeroSection();
-        
-        // Update features section
-        this.updateFeaturesSection();
-        
-        // Update plugins section
-        this.updatePluginsSection();
-        
-        // Update AI section
-        this.updateAISection();
-        
-        // Update docs section
-        this.updateDocsSection();
-        
-        // Update download section
-        this.updateDownloadSection();
-        
-        // Update footer
-        this.updateFooter();
-    }
-    
-    updateHeroSection() {
-        const hero = this.config.hero;
-        if (!hero) return;
-        
-        // Update badge
-        const badge = document.querySelector('.hero-badge span:last-child');
-        if (badge) badge.textContent = hero.badge;
-        
-        // Update title
-        const titleLines = document.querySelectorAll('.hero-title .title-line');
-        if (titleLines.length >= 2) {
-            titleLines[0].textContent = hero.title[0];
-            titleLines[1].textContent = hero.title[1];
-        }
-        
-        // Update subtitle
-        const subtitle = document.querySelector('.hero-subtitle');
-        if (subtitle) subtitle.textContent = hero.subtitle;
-        
-        // Update stats
-        const statItems = document.querySelectorAll('.hero-stats .stat-item');
-        hero.stats.forEach((stat, index) => {
-            if (statItems[index]) {
-                const number = statItems[index].querySelector('.stat-number');
-                const label = statItems[index].querySelector('.stat-label');
-                if (number) {
-                    number.textContent = '0';
-                    number.setAttribute('data-count', stat.value);
-                }
-                if (label) label.textContent = stat.label;
-            }
-        });
-        
-        // Update actions
-        const actionButtons = document.querySelectorAll('.hero-actions .btn');
-        hero.actions.forEach((action, index) => {
-            if (actionButtons[index]) {
-                actionButtons[index].textContent = action.text;
-                actionButtons[index].href = action.url;
-                actionButtons[index].className = `btn btn-${action.type}`;
-                actionButtons[index].innerHTML = `<i class="fas ${action.icon}"></i>${action.text}`;
-            }
-        });
-    }
-    
-    updateFeaturesSection() {
-        const features = this.config.features;
-        if (!features) return;
-        
-        // Update section header
-        const sectionHeader = document.querySelector('.features .section-header');
-        if (sectionHeader) {
-            const title = sectionHeader.querySelector('.section-title');
-            const desc = sectionHeader.querySelector('.section-desc');
-            if (title) title.textContent = features.title;
-            if (desc) desc.textContent = features.description;
-        }
-        
-        // Update filter buttons
-        const filterBtns = document.querySelectorAll('.filter-tabs .filter-btn');
-        features.filters.forEach((filter, index) => {
-            if (filterBtns[index]) {
-                filterBtns[index].textContent = filter.name;
-                filterBtns[index].setAttribute('data-filter', filter.id);
-            }
-        });
-        
-        // Update feature cards
-        const featuresGrid = document.querySelector('.features-grid');
-        if (featuresGrid) {
-            featuresGrid.innerHTML = '';
-            features.items.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'feature-card';
-                card.setAttribute('data-category', item.category);
-                
-                const tagsHtml = item.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
-                
-                card.innerHTML = `
-                    <div class="feature-icon">
-                        <i class="fas ${item.icon}"></i>
-                    </div>
-                    <h3>${item.title}</h3>
-                    <p>${item.description}</p>
-                    <div class="feature-tags">
-                        ${tagsHtml}
-                    </div>
-                `;
-                
-                featuresGrid.appendChild(card);
-            });
-        }
-    }
-    
-    updatePluginsSection() {
-        const plugins = this.config.plugins;
-        if (!plugins) return;
-        
-        // Update section header
-        const sectionHeader = document.querySelector('.plugins .section-header');
-        if (sectionHeader) {
-            const title = sectionHeader.querySelector('.section-title');
-            const desc = sectionHeader.querySelector('.section-desc');
-            if (title) title.textContent = plugins.title;
-            if (desc) desc.textContent = plugins.description;
-        }
-        
-        // Update plugin mode cards
-        const pluginsShowcase = document.querySelector('.plugins-showcase');
-        if (pluginsShowcase) {
-            pluginsShowcase.innerHTML = '';
-            plugins.modes.forEach(mode => {
-                const card = document.createElement('div');
-                card.className = 'plugin-mode-card';
-                
-                const featuresHtml = mode.features.map(feature => `<li><i class="fas fa-check"></i> ${feature}</li>`).join('');
-                
-                card.innerHTML = `
-                    <div class="mode-header">
-                        <span class="mode-badge ${mode.badge === '推荐' ? 'recommended' : 'compatible'}">${mode.badge}</span>
-                        <h3>${mode.name}</h3>
-                    </div>
-                    <div class="mode-content">
-                        <p>${mode.description}</p>
-                        <ul class="feature-list">
-                            ${featuresHtml}
-                        </ul>
-                    </div>
-                    <div class="code-preview">
-                        <pre><code class="language-python">${mode.code}</code></pre>
-                    </div>
-                `;
-                
-                pluginsShowcase.appendChild(card);
-            });
-        }
-    }
-    
-    updateAISection() {
-        const ai = this.config.ai;
-        if (!ai) return;
-        
-        // Update section header
-        const sectionHeader = document.querySelector('.ai-brain .section-header');
-        if (sectionHeader) {
-            const title = sectionHeader.querySelector('.section-title');
-            const desc = sectionHeader.querySelector('.section-desc');
-            if (title) title.textContent = ai.title;
-            if (desc) desc.textContent = ai.description;
-        }
-        
-        // Update AI feature cards
-        const aiFeatures = document.querySelector('.ai-features');
-        if (aiFeatures) {
-            aiFeatures.innerHTML = '';
-            ai.features.forEach(feature => {
-                const card = document.createElement('div');
-                card.className = 'ai-card';
-                
-                card.innerHTML = `
-                    <div class="ai-icon">
-                        <i class="fas ${feature.icon}"></i>
-                    </div>
-                    <h3>${feature.title}</h3>
-                    <p>${feature.description}</p>
-                `;
-                
-                aiFeatures.appendChild(card);
-            });
-        }
-    }
-    
-    updateDocsSection() {
-        const docs = this.config.docs;
-        if (!docs) return;
-        
-        // Update section header
-        const sectionHeader = document.querySelector('.docs .section-header');
-        if (sectionHeader) {
-            const title = sectionHeader.querySelector('.section-title');
-            const desc = sectionHeader.querySelector('.section-desc');
-            if (title) title.textContent = docs.title;
-            if (desc) desc.textContent = docs.description;
-        }
-        
-        // Update docs navigation
-        const docsNav = document.querySelector('.docs-nav');
-        if (docsNav) {
-            docsNav.innerHTML = '';
-            docs.navigation.forEach(item => {
-                const navItem = document.createElement('li');
-                navItem.className = 'docs-nav-item';
-                navItem.innerHTML = `
-                    <a href="#${item.id}">
-                        <i class="fas ${item.icon}"></i>
-                        ${item.name}
-                    </a>
-                `;
-                docsNav.appendChild(navItem);
-            });
-        }
-        
-        // Update docs content
-        const docsContent = document.querySelector('.docs-content');
-        if (docsContent) {
-            docsContent.innerHTML = '';
-            Object.entries(docs.sections).forEach(([id, section]) => {
-                const sectionDiv = document.createElement('div');
-                sectionDiv.className = 'doc-section';
-                sectionDiv.id = id;
-                
-                let contentHtml = `<h3>${section.title}</h3><div class="doc-content">`;
-                
-                section.content.forEach(item => {
-                    if (item.type === 'h4') {
-                        contentHtml += `<h4>${item.text}</h4>`;
-                    } else if (item.type === 'p') {
-                        contentHtml += `<p>${item.text}</p>`;
-                    } else if (item.type === 'code') {
-                        contentHtml += `
-                            <div class="code-block">
-                                <div class="code-header">
-                                    <span>${item.language || ''}</span>
-                                    <button class="copy-btn"><i class="fas fa-copy"></i></button>
-                                </div>
-                                <pre><code>${item.content}</code></pre>
-                            </div>
-                        `;
-                    }
-                });
-                
-                contentHtml += `</div>`;
-                sectionDiv.innerHTML = contentHtml;
-                docsContent.appendChild(sectionDiv);
-            });
-        }
-    }
-    
-    updateDownloadSection() {
-        const download = this.config.download;
-        if (!download) return;
-        
-        // Update section header
-        const sectionHeader = document.querySelector('.download .section-header');
-        if (sectionHeader) {
-            const title = sectionHeader.querySelector('.section-title');
-            const desc = sectionHeader.querySelector('.section-desc');
-            if (title) title.textContent = download.title;
-            if (desc) desc.textContent = download.description;
-        }
-        
-        // Update download options
-        const downloadOptions = document.querySelector('.download-options');
-        if (downloadOptions) {
-            downloadOptions.innerHTML = '';
-            download.options.forEach(option => {
-                const card = document.createElement('div');
-                card.className = 'download-card';
-                
-                card.innerHTML = `
-                    <div class="download-icon">
-                        <i class="fab ${option.icon}"></i>
-                    </div>
-                    <h3>${option.name}</h3>
-                    <p>${option.description}</p>
-                    <span class="version">${option.version}</span>
-                    <a href="${option.button.url}" class="btn btn-${option.button.type}">
-                        ${option.button.text}
-                    </a>
-                `;
-                
-                downloadOptions.appendChild(card);
-            });
-        }
-    }
-    
-    updateFooter() {
-        const footer = this.config.footer;
-        if (!footer) return;
-        
-        // Update footer links
-        const footerLinks = document.querySelector('.footer-links');
-        if (footerLinks) {
-            footerLinks.innerHTML = '';
-            footer.sections.forEach(section => {
-                const sectionDiv = document.createElement('div');
-                sectionDiv.className = 'footer-section';
-                
-                const linksHtml = section.links.map(link => `<li><a href="${link.url}">${link.name}</a></li>`).join('');
-                
-                sectionDiv.innerHTML = `
-                    <h4>${section.title}</h4>
-                    <ul>
-                        ${linksHtml}
-                    </ul>
-                `;
-                
-                footerLinks.appendChild(sectionDiv);
-            });
-        }
-        
-        // Update copyright
-        const copyright = document.querySelector('.footer-bottom p');
-        if (copyright) copyright.textContent = footer.copyright;
-    }
-}
+    $("#hero-subtitle").textContent = hero.subtitle || site.description || "";
 
-// ===== Initialize All =====
-document.addEventListener('DOMContentLoaded', async () => {
-    // Load config
-    const configLoader = new ConfigLoader();
-    await configLoader.load();
-    
-    // Initialize particle system
-    new ParticleSystem();
-    
-    // Initialize counter animation
-    new CounterAnimation();
-    
-    // Initialize feature filter
-    new FeatureFilter();
-    
-    // Initialize theme toggle
-    new ThemeToggle();
-    
-    // Initialize mobile menu
-    new MobileMenu();
-    
-    // Initialize smooth scroll
-    new SmoothScroll();
-    
-    // Initialize navbar scroll effect
-    new NavbarScroll();
-    
-    // Initialize active section highlight
-    new ActiveSection();
-    
-    // Initialize copy code
-    new CopyCode();
-    
-    // Initialize docs navigation
-    new DocsNavigation();
-    
-    // Initialize scroll reveal
-    new ScrollReveal();
-    
-    // Initialize typing effect
-    new TypingEffect();
-    
-    // Fix click events
-    fixClickEvents();
-});
-
-// ===== Modal for Docker Command =====
-class DockerModal {
-    constructor() {
-        this.modal = null;
-        this.createModal();
+    const stats = $("#hero-stats");
+    if (stats && Array.isArray(hero.stats)) {
+      stats.innerHTML = hero.stats
+        .map(
+          (s) => `
+        <div class="stat-item">
+          <span class="stat-number" data-count="${Number(s.value) || 0}">0</span>
+          <span class="stat-label">${escapeHtml(s.label || "")}</span>
+        </div>`
+        )
+        .join("");
     }
-    
-    createModal() {
-        // Create modal element
-        this.modal = document.createElement('div');
-        this.modal.className = 'docker-modal';
-        this.modal.style.display = 'none';
-        this.modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Docker 部署指令</h3>
-                    <button class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="code-block">
-                        <div class="code-header">
-                            <span>bash</span>
-                            <button class="copy-btn"><i class="fas fa-copy"></i> 复制</button>
-                        </div>
-                        <pre><code class="language-bash">docker run -d \
-  --name bbot \
-  --restart unless-stopped \
-  -p 5000:5000 \
-  -p 8888:8888 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /your/data/path:/app/mount \
-  241793/b-bot:latest</code></pre>
-                    </div>
-                    <div class="modal-note">
-                        <p><strong>注意：</strong>请将 <code>/your/data/path</code> 替换为您的实际数据目录路径</p>
-                    </div>
-                </div>
+
+    const actions = $("#hero-actions");
+    if (actions && Array.isArray(hero.actions)) {
+      actions.innerHTML = hero.actions
+        .map((a) => {
+          const cls = a.type === "primary" ? "btn btn-primary" : "btn btn-ghost";
+          const ext = String(a.url || "").startsWith("http")
+            ? ' target="_blank" rel="noopener"'
+            : "";
+          return `<a class="${cls}" href="${escapeHtml(a.url || "#")}"${ext}><i class="fas ${escapeHtml(
+            a.icon || "fa-arrow-right"
+          )}"></i> ${escapeHtml(a.text || "")}</a>`;
+        })
+        .join("");
+    }
+  }
+
+  function renderFeatures(cfg) {
+    const features = cfg.features || {};
+    $("#features-title").textContent = features.title || "核心能力";
+    $("#features-desc").textContent = features.description || "";
+
+    const filters = $("#feature-filters");
+    filters.innerHTML = (features.filters || [])
+      .map(
+        (f, i) =>
+          `<button class="filter-btn${i === 0 ? " active" : ""}" type="button" data-filter="${escapeHtml(
+            f.id
+          )}">${escapeHtml(f.name)}</button>`
+      )
+      .join("");
+
+    const grid = $("#features-grid");
+    grid.innerHTML = (features.items || [])
+      .map(
+        (item) => `
+      <article class="feature-card" data-category="${escapeHtml(item.category || "core")}">
+        <div class="feature-icon"><i class="fas ${escapeHtml(item.icon || "fa-star")}"></i></div>
+        <h3>${escapeHtml(item.title || "")}</h3>
+        <p>${escapeHtml(item.description || "")}</p>
+        <div class="feature-tags">
+          ${(item.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
+        </div>
+      </article>`
+      )
+      .join("");
+
+    filters.addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn) return;
+      $$(".filter-btn", filters).forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const f = btn.getAttribute("data-filter");
+      $$(".feature-card", grid).forEach((card) => {
+        const cat = card.getAttribute("data-category");
+        card.style.display = f === "all" || cat === f ? "" : "none";
+      });
+    });
+  }
+
+  function renderShowcase(cfg) {
+    const sc = cfg.showcase || {};
+    $("#showcase-title").textContent = sc.title || "界面预览";
+    $("#showcase-desc").textContent = sc.description || "";
+    const grid = $("#showcase-grid");
+    grid.innerHTML = (sc.items || [])
+      .map(
+        (it) => `
+      <article class="shot-card">
+        <img src="${escapeHtml(it.image || "")}" alt="${escapeHtml(it.title || "")}" loading="lazy">
+        <div class="shot-meta">
+          <h3>${escapeHtml(it.title || "")}</h3>
+          <p>${escapeHtml(it.desc || "")}</p>
+        </div>
+      </article>`
+      )
+      .join("");
+  }
+
+  function renderPlugins(cfg) {
+    const pl = cfg.plugins || {};
+    $("#plugins-title").textContent = pl.title || "插件";
+    $("#plugins-desc").textContent = pl.description || "";
+    const grid = $("#plugins-grid");
+    grid.innerHTML = (pl.modes || [])
+      .map((m, idx) => {
+        const badgeCls = idx === 0 ? "mode-badge" : "mode-badge compat";
+        return `
+        <article class="plugin-card">
+          <div class="plugin-head">
+            <h3>${escapeHtml(m.name || "")}</h3>
+            <span class="${badgeCls}">${escapeHtml(m.badge || "")}</span>
+          </div>
+          <div class="plugin-body">
+            <p>${escapeHtml(m.description || "")}</p>
+            <ul class="feature-list">
+              ${(m.features || [])
+                .map((f) => `<li><i class="fas fa-check"></i>${escapeHtml(f)}</li>`)
+                .join("")}
+            </ul>
+            <div class="code-block">
+              <div class="code-head">
+                <span>python</span>
+                <button class="copy-btn" type="button" title="复制"><i class="fas fa-copy"></i></button>
+              </div>
+              <pre><code>${escapeHtml(m.code || "")}</code></pre>
             </div>
-        `;
-        
-        // Add to document
-        document.body.appendChild(this.modal);
-        
-        // Add event listeners
-        this.addEventListeners();
-    }
-    
-    addEventListeners() {
-        // Close button
-        const closeBtn = this.modal.querySelector('.close-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.hide());
-        }
-        
-        // Copy button
-        const copyBtn = this.modal.querySelector('.copy-btn');
-        if (copyBtn) {
-            copyBtn.addEventListener('click', () => this.copyCommand());
-        }
-        
-        // Click outside to close
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                this.hide();
-            }
-        });
-    }
-    
-    show() {
-        this.modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-    
-    hide() {
-        this.modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-    
-    copyCommand() {
-        const code = this.modal.querySelector('code');
-        if (code) {
-            const text = code.textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                const copyBtn = this.modal.querySelector('.copy-btn');
-                if (copyBtn) {
-                    const originalText = copyBtn.innerHTML;
-                    copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
-                    copyBtn.style.color = '#00d4ff';
-                    
-                    setTimeout(() => {
-                        copyBtn.innerHTML = originalText;
-                        copyBtn.style.color = '';
-                    }, 2000);
-                }
-            });
-        }
-    }
-}
+          </div>
+        </article>`;
+      })
+      .join("");
+  }
 
-// ===== Fix Click Events =====
-function fixClickEvents() {
-    // Initialize docker modal
-    const dockerModal = new DockerModal();
-    
-    // Fix download buttons
-    document.querySelectorAll('.download-card a').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            const href = this.getAttribute('href');
-            if (href === 'docker') {
-                e.preventDefault();
-                dockerModal.show();
-            } else if (href === '#') {
-                e.preventDefault();
-                alert('此功能正在开发中，敬请期待！');
-            }
-        });
-    });
-    
-    // Fix docs navigation
-    document.querySelectorAll('.docs-nav-item a').forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const targetId = this.getAttribute('href');
-            const target = document.querySelector(targetId);
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                
-                // Update active state
-                document.querySelectorAll('.docs-nav-item').forEach(item => item.classList.remove('active'));
-                this.closest('.docs-nav-item').classList.add('active');
-            }
-        });
-    });
-    
-    // Fix footer links
-    document.querySelectorAll('.footer-section a').forEach(link => {
-        link.addEventListener('click', function(e) {
-            const href = this.getAttribute('href');
-            if (href === '#') {
-                e.preventDefault();
-                alert('此功能正在开发中，敬请期待！');
-            }
-        });
-    });
-    
-    // Fix feature filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            // This is already handled by FeatureFilter class
-            // Just ensuring it's working
-            console.log('Filter button clicked:', this.getAttribute('data-filter'));
-        });
-    });
-    
-    // Fix theme toggle
-    document.getElementById('theme-toggle').addEventListener('click', function() {
-        console.log('Theme toggle clicked');
-    });
-    
-    // Fix mobile menu button
-    document.getElementById('mobile-menu-btn').addEventListener('click', function() {
-        console.log('Mobile menu button clicked');
-    });
-}
+  function renderAI(cfg) {
+    const ai = cfg.ai || {};
+    $("#ai-title").textContent = ai.title || "AI 大脑";
+    $("#ai-desc").textContent = ai.description || "";
+    $("#ai-grid").innerHTML = (ai.features || [])
+      .map(
+        (f) => `
+      <article class="ai-card">
+        <div class="ai-icon"><i class="fas ${escapeHtml(f.icon || "fa-star")}"></i></div>
+        <h3>${escapeHtml(f.title || "")}</h3>
+        <p>${escapeHtml(f.description || "")}</p>
+      </article>`
+      )
+      .join("");
+  }
 
-// ===== Parallax Effect =====
-window.addEventListener('scroll', () => {
-    const scrolled = window.pageYOffset;
-    const parallaxElements = document.querySelectorAll('.robot-container');
-    
-    parallaxElements.forEach(el => {
-        const speed = 0.5;
-        el.style.transform = `translateY(${scrolled * speed}px)`;
-    });
-});
+  function renderDocs(cfg) {
+    const docs = cfg.docs || {};
+    $("#docs-title").textContent = docs.title || "上手";
+    $("#docs-desc").textContent = docs.description || "";
+    if (cfg.site?.docsUrl) $("#docs-more").href = cfg.site.docsUrl;
 
-// ===== Mouse Follow Effect =====
-document.addEventListener('mousemove', (e) => {
-    const cards = document.querySelectorAll('.feature-card, .ai-card');
-    
-    cards.forEach(card => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            const rotateX = (y - centerY) / 20;
-            const rotateY = (centerX - x) / 20;
-            
-            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px)`;
-        } else {
-            card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
-        }
+    const nav = $("#docs-nav");
+    const panel = $("#docs-panel");
+    const sections = docs.sections || {};
+    const navigation = docs.navigation || [];
+
+    const renderSection = (id) => {
+      const sec = sections[id];
+      if (!sec) {
+        panel.innerHTML = "<p>暂无内容</p>";
+        return;
+      }
+      const blocks = (sec.content || [])
+        .map((block) => {
+          if (block.type === "h4") {
+            return `<div class="doc-block"><h4>${escapeHtml(block.text || "")}</h4></div>`;
+          }
+          if (block.type === "p") {
+            return `<div class="doc-block"><p>${block.text || ""}</p></div>`;
+          }
+          if (block.type === "code") {
+            return `
+              <div class="doc-block">
+                <div class="code-block">
+                  <div class="code-head">
+                    <span>${escapeHtml(block.language || "text")}</span>
+                    <button class="copy-btn" type="button" title="复制"><i class="fas fa-copy"></i></button>
+                  </div>
+                  <pre><code>${escapeHtml(block.content || "")}</code></pre>
+                </div>
+              </div>`;
+          }
+          return "";
+        })
+        .join("");
+      panel.innerHTML = `<h3>${escapeHtml(sec.title || id)}</h3>${blocks}`;
+      bindCopy(panel);
+    };
+
+    nav.innerHTML = navigation
+      .map(
+        (n, i) => `
+      <li>
+        <button type="button" data-id="${escapeHtml(n.id)}" class="${i === 0 ? "active" : ""}">
+          <i class="fas ${escapeHtml(n.icon || "fa-file")}"></i>
+          ${escapeHtml(n.name || n.id)}
+        </button>
+      </li>`
+      )
+      .join("");
+
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-id]");
+      if (!btn) return;
+      $$("button", nav).forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderSection(btn.getAttribute("data-id"));
     });
-});
+
+    if (navigation[0]) renderSection(navigation[0].id);
+  }
+
+  function openDockerModal(cfg) {
+    let mask = $("#docker-modal");
+    if (!mask) {
+      mask = document.createElement("div");
+      mask.id = "docker-modal";
+      mask.className = "modal-mask";
+      mask.innerHTML = `
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docker-modal-title">
+          <div class="modal-h">
+            <h3 id="docker-modal-title">Docker 部署命令</h3>
+            <button class="icon-btn close-modal" type="button" aria-label="关闭"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="modal-b">
+            <p>把数据目录挂到 <code>/app/mount</code>。首次启动会自动初始化；已有数据请先备份。</p>
+            <div class="code-block">
+              <div class="code-head">
+                <span>bash</span>
+                <button class="copy-btn" type="button" title="复制"><i class="fas fa-copy"></i></button>
+              </div>
+              <pre><code id="docker-cmd"></code></pre>
+            </div>
+            <p style="margin-top:0.9rem;margin-bottom:0;">浏览器访问 <code>http://服务器IP:5000</code> 进入面板。</p>
+          </div>
+        </div>`;
+      document.body.appendChild(mask);
+      const close = () => mask.classList.remove("open");
+      mask.addEventListener("click", (e) => {
+        if (e.target === mask || e.target.closest(".close-modal")) close();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && mask.classList.contains("open")) close();
+      });
+    }
+    const cmd =
+      cfg.docs?.sections?.quickstart?.content?.find((x) => x.type === "code")?.content ||
+      `docker run -d \\\n  --name bbot \\\n  --restart unless-stopped \\\n  -p 5000:5000 \\\n  -p 8888:8888 \\\n  -v /var/run/docker.sock:/var/run/docker.sock \\\n  -v /your/data/path:/app/mount \\\n  241793/b-bot:latest`;
+    $("#docker-cmd", mask).textContent = cmd;
+    bindCopy(mask);
+    mask.classList.add("open");
+  }
+
+  function renderDownload(cfg) {
+    const dl = cfg.download || {};
+    $("#download-title").textContent = dl.title || "立即开始";
+    $("#download-desc").textContent = dl.description || "";
+    const grid = $("#download-grid");
+    grid.innerHTML = (dl.options || [])
+      .map((o) => {
+        const isDocker = o.id === "docker" || String(o.button?.url || "") === "#docs";
+        const href = o.button?.url || "#";
+        const type = o.button?.type === "primary" ? "btn btn-primary" : "btn btn-ghost";
+        const icon = String(o.icon || "").includes("fa-") ? o.icon : `fa-${o.icon || "box"}`;
+        const brand = ["docker", "github", "android", "windows"].some((x) => icon.includes(x))
+          ? "fab"
+          : "fas";
+        return `
+        <article class="download-card">
+          <div class="download-icon"><i class="${brand} ${escapeHtml(icon)}"></i></div>
+          <h3>${escapeHtml(o.name || "")}</h3>
+          <p>${escapeHtml(o.description || "")}</p>
+          <div class="ver">${escapeHtml(o.version || "")}</div>
+          <a class="${type} dl-btn" href="${escapeHtml(href)}" data-docker="${isDocker ? "1" : "0"}"${
+          String(href).startsWith("http") ? ' target="_blank" rel="noopener"' : ""
+        }>${escapeHtml(o.button?.text || "打开")}</a>
+        </article>`;
+      })
+      .join("");
+
+    grid.addEventListener("click", (e) => {
+      const a = e.target.closest(".dl-btn");
+      if (!a) return;
+      if (a.getAttribute("data-docker") === "1") {
+        e.preventDefault();
+        openDockerModal(cfg);
+      }
+    });
+
+    const cta = $("#cta-docker-btn");
+    if (cta) {
+      cta.addEventListener("click", (e) => {
+        e.preventDefault();
+        openDockerModal(cfg);
+      });
+    }
+  }
+
+  function renderFooter(cfg) {
+    const ft = cfg.footer || {};
+    $("#footer-tagline").textContent = cfg.site?.description || "AI 驱动的智能机器人框架";
+    $("#footer-copy").textContent = ft.copyright || "© 2026 B-BOT";
+    const cols = $("#footer-cols");
+    cols.innerHTML = (ft.sections || [])
+      .map(
+        (s) => `
+      <div class="footer-col">
+        <h4>${escapeHtml(s.title || "")}</h4>
+        <ul>
+          ${(s.links || [])
+            .map((l) => {
+              const ext = String(l.url || "").startsWith("http")
+                ? ' target="_blank" rel="noopener"'
+                : "";
+              return `<li><a href="${escapeHtml(l.url || "#")}"${ext}>${escapeHtml(l.name || "")}</a></li>`;
+            })
+            .join("")}
+        </ul>
+      </div>`
+      )
+      .join("");
+  }
+
+  function bindCopy(root = document) {
+    $$(".copy-btn", root).forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = "1";
+      btn.addEventListener("click", async () => {
+        const block = btn.closest(".code-block");
+        const code = block?.querySelector("code")?.textContent || "";
+        try {
+          await navigator.clipboard.writeText(code);
+          const old = btn.innerHTML;
+          btn.innerHTML = '<i class="fas fa-check"></i>';
+          setTimeout(() => {
+            btn.innerHTML = old;
+          }, 1400);
+        } catch (_) {}
+      });
+    });
+  }
+
+  async function main() {
+    setupTheme();
+    setupNav();
+    const canvas = $("#particles-canvas");
+    if (canvas) new Particles(canvas);
+
+    let cfg = null;
+    try {
+      const res = await fetch("config.json", { cache: "no-store" });
+      cfg = await res.json();
+    } catch (e) {
+      console.error("config.json load failed", e);
+      cfg = { site: { name: "B-BOT", version: "1.1.2" } };
+    }
+
+    renderHero(cfg);
+    renderFeatures(cfg);
+    renderShowcase(cfg);
+    renderPlugins(cfg);
+    renderAI(cfg);
+    renderDocs(cfg);
+    renderDownload(cfg);
+    renderFooter(cfg);
+
+    animateCounters();
+    setupReveal();
+    bindCopy(document);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", main);
+  } else {
+    main();
+  }
+})();
