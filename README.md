@@ -5,8 +5,8 @@
 一个可通过 AI 驱动的机器人框架（Python 实现），具备多协议接入、插件化架构、规则引擎、持久化存储、可视化管理面板与 Agent 能力。
 
 - 当前版本：**1.1.2**
-- 配套安卓 APP：`1.0.5`  
-  [https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk](https://github.com/241793/B-Bot-App/releases/download/1.0.5/B-BOT1.0.5.apk)
+- 配套安卓 APP：`1.0.4`  
+  https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk
 - Win 版已停更（0.0.9）
 
 <img width="1855" height="827" alt="image" src="https://github.com/user-attachments/assets/6730a9bf-acb3-4852-8aec-e874af20e620" />
@@ -14,6 +14,26 @@
 ---
 
 ## 更新日志
+
+### 2026/07/20 · 1.1.2（增补）
+- **内置青龙 · 脚本环境变量 SDK**
+  - 脚本内可直接管理环境变量（**JS + Python**）
+  - 支持按名称查询 / 设置，**更新不必手填 id**
+  - 运行时自动注入 `QL_API_BASE` / `QL_INTERNAL_KEY`，走本机内部鉴权
+  - 详见 [内置青龙 · 脚本内环境变量](#内置青龙--脚本内环境变量-qlenv)
+- **内置青龙 · 脚本管理**
+  - 空文件夹也会显示在脚本树
+  - 过滤 `__pycache__`、`_debug` / `__debug__` 等干扰目录
+  - 新建文件夹后自动展开，便于立刻看到
+- **插件调试**
+  - 调试页 AI 编写插件、行级 diff 高亮
+  - 支持 `register()` / `test` 入口与 `wait_for_input` 多轮
+  - 调试日志「仅当前插件」可匹配 `debug_user` / stdout 邻近输出
+- **存储**
+  - 业务桶统一 `data/jobs.db`；不再 seed 空的 `qinglong_*.json`
+- **在线文档 / 官网**
+  - 文档拉取多代理 + 防缓存；章节分页优化
+  - `docs/` 官网更新至 1.1.2 视觉与内容
 
 ### 2026/07/15 · 1.1.2
 - **适配器**
@@ -59,7 +79,7 @@
 | 规则引擎 | 正则 / 关键词 / 全匹配，可限制渠道与会话类型 |
 | AI 大脑 | 对话、技能、MCP、知识库、工作流、定时任务、记忆、Bot-Chat |
 | 子智能体 Agent | 独立配置与知识桶隔离 |
-| 内置青龙 | 环境变量、定时任务、脚本、订阅、依赖、日志 |
+| 内置青龙 | 环境变量、定时任务、脚本、订阅、依赖、日志；**脚本内 `ql_env` 可增删改 env**；Python/JS 依赖统一在 `plugins/qinglong_lib` |
 | 本地图床 | 上传图片并生成 `/i/` 公开直链，可供规则/知识库/AI 发图 |
 | 支付 | 内置支付宝相关能力（码支付等） |
 | 可视化面板 | Web 管理、多主题、移动端、悬浮工具栏 |
@@ -107,7 +127,9 @@
   - [AI 定时任务](#ai-定时任务)
   - [知识库导出 / 导入](#知识库导出--导入)
 
-**五、支付与其他**
+**五、运维与扩展**
+- [内置青龙](#内置青龙)
+  - [脚本内环境变量（QLEnv）](#内置青龙--脚本内环境变量-qlenv)
 - [内置支付系统](#内置支付系统)
 - [常见问题与特殊说明](#常见问题与特殊说明)
 
@@ -3085,6 +3107,100 @@ if __name__ == '__main__':
 
 ---
 
+## 内置青龙
+
+Web 后台左侧「内置青龙」提供与青龙面板类似的能力，数据落在 `data/jobs.db`（bucket 表），无需再维护一堆 `qinglong_*.json`。
+
+| 模块 | 说明 |
+|---|---|
+| 环境变量 | 增删改、启用/禁用、搜索排序；运行脚本时自动注入（同名多值用 `&` 拼接） |
+| 定时任务 | Cron 表达式、运行/停止、日志 |
+| 脚本管理 | Python / JS；文件夹树（**含空文件夹**）；过滤 `__pycache__` / `_debug` |
+| 订阅 / 依赖 / 日志 / API Key | 订阅拉取、npm/pip 依赖、运行日志、OpenAPI Token |
+
+脚本执行时，**已启用**的环境变量会注入进程：
+
+- JS：`process.env.变量名`
+- Python：`os.environ["变量名"]`
+
+### 内置青龙 · 脚本内环境变量（QLEnv）
+
+除了在 Web「环境变量」页管理，脚本内也可直接增删改查（**JS + Python**）。
+
+运行时会自动注入：
+
+| 环境变量 | 含义 |
+|---|---|
+| `QL_API_BASE` | 本机面板地址，如 `http://127.0.0.1:5000` |
+| `QL_INTERNAL_KEY` | 内部鉴权密钥（`plugin_secret_key`） |
+
+SDK 路径：
+
+- JS：`plugins/qinglong_lib/js/ql_env.js`（面板运行时可直接用全局 `QLEnv` / `QLAPI`）
+- Python：`plugins/qinglong_lib/python/ql_env.py`（`from ql_env import QLEnv`）
+
+#### 常用 API（按「变量名」，不必手填 id）
+
+| 能力 | JS | Python |
+|---|---|---|
+| 全部列表 | `await QLEnv.getEnvs()` / `getEnvs(kw, {fuzzy:true})` | `QLEnv.get_envs()` / `get_envs(kw, fuzzy=True)` |
+| 按名取第一条（**精确**） | `await QLEnv.getEnv(name)` | `QLEnv.get_env(name)` |
+| 按名取全部（**精确**） | `await QLEnv.getEnvsByName(name)` | `QLEnv.get_envs_by_name(name)` |
+| 有则更新 / 无则新增 | `await QLEnv.setEnv(name, value, remarks?)` | `QLEnv.set_env(name, value, remarks?)` |
+| 始终新增一条 | `await QLEnv.addEnv(name, value, remarks?)` | `QLEnv.add_env(...)` |
+| 按名删除全部 | `await QLEnv.deleteEnvByName(name)` | `QLEnv.delete_env_by_name(name)` |
+| 按名启用/禁用 | `enableEnvByName` / `disableEnvByName` | `enable_env_by_name` / `disable_env_by_name` |
+| 已知 id 时更新 | `await QLEnv.updateEnv({ id, value })` | `QLEnv.update_env(id=..., value=...)` |
+
+**`setEnv` 语义**：同名 0 条 → 新增；1 条 → 更新；多条 → 更新 **id 最小** 的一条。若要追加同名账号池，用 `addEnv`。
+
+#### JS 示例
+
+```javascript
+// 面板运行时已有全局 QLEnv；也可：const { QLEnv } = require('ql_env');
+
+(async () => {
+  // 读取（运行前已注入 process.env；也可用 SDK 查完整记录）
+  console.log(process.env.MY_CK);
+
+  // 按名称取（含 id），自己判断
+  const row = await QLEnv.getEnv('MY_CK');
+  if (row) {
+    console.log(row.id, row.value);
+  }
+
+  // 推荐：按名 set，不用手填 id
+  await QLEnv.setEnv('MY_CK', 'aaa&bbb', '账号池');
+  console.log(process.env.MY_CK); // 写入后会刷新当前进程环境变量
+})();
+```
+
+#### Python 示例
+
+```python
+import os
+from ql_env import QLEnv
+
+print(os.environ.get("MY_CK"))
+
+row = QLEnv.get_env("MY_CK")  # dict 或 None，含 id
+if row:
+    print(row["id"], row["value"])
+
+# 推荐：按名 set
+QLEnv.set_env("MY_CK", "aaa&bbb", "账号池")
+print(os.environ.get("MY_CK"))
+```
+
+#### 注意
+
+1. 请通过**内置青龙面板 / 定时任务**运行脚本，才会注入 `QL_INTERNAL_KEY`；系统里裸跑 `node`/`python` 需自行配置环境变量。
+2. 依赖本机 Web 服务已启动（脚本通过 `127.0.0.1` 调面板 API）。
+3. `deleteEnvByName` 会删除该名称下**全部**记录，请谨慎。
+4. 框架**插件**（非青龙脚本）对接外部/内置青龙，仍可用 `QinglongClient` / `QinglongContainer`（见上文「青龙调用」）。
+
+---
+
 ## 常见问题与特殊说明
 
 ### 特殊说明
@@ -3094,7 +3210,9 @@ if __name__ == '__main__':
 3. **日志轮转**：可按系统配置自动清理日志文件。
 4. **QQ 集成**：支持好友请求、撤回、群管、点赞等能力（视适配器实现）。
 5. **反向 WebSocket**：用于将处理结果发回消息平台。
-6. **青龙**：可对接外部青龙面板，也可使用内置青龙运行脚本。
+6. **青龙**：可对接外部青龙面板，也可使用内置青龙运行脚本；脚本内可用 `ql_env` 管理环境变量。
+7. **数据存储**：业务配置/青龙/规则等统一写入 `data/jobs.db`，首次 Docker 启动不再生成一堆空 JSON seed。
+8. **依赖目录**：Python 依赖统一到 `plugins/qinglong_lib/python`，JS 到 `plugins/qinglong_lib/js`（本地管理与内置青龙共用）。旧 `plugins/lib` 启动时自动迁移（已存在则跳过、不覆盖），可手动删除。
 
 ### 常见问题
 
@@ -3105,5 +3223,7 @@ if __name__ == '__main__':
 | AI 不回复 | AI 大脑是否启用；模型配置是否完整；唤醒词/管理员权限 |
 | 适配器连不上 | Token/回调地址/代理；查看系统日志与适配器状态 |
 | 内置青龙任务不跑 | 任务是否启用、Cron 表达式、脚本是否存在、依赖是否安装 |
-| Docker 更新后数据丢 | 确认 `data` 卷挂载路径正确，更新前先备份 |
+| 青龙脚本 `QLEnv` 报未注入密钥 | 必须在内置青龙里运行；重启后端后再试 |
+| 新建脚本文件夹不显示 | 刷新页面；空文件夹会显示「空文件夹」；`__pycache__`/`_debug` 已过滤 |
+| Docker 更新后数据丢 | 确认 `data` 卷挂载到 `/app/mount`，更新前先备份 |
 
