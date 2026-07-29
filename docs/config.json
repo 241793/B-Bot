@@ -1,0 +1,13 @@
+{
+  "name": "B-BOT",
+  "version": "1.1.2",
+  "title": "AI 驱动的智能机器人框架",
+  "description": "多渠道接入、独立 Agent、插件扩展、AI 工作流与内置青龙，在一套 Web 管理台中协同运行。",
+  "dockerSocketNotice": "命令中的 docker.sock 挂载用于容器管理，会授予 B-BOT 容器访问宿主 Docker 守护进程的能力。仅在受控主机上部署。",
+  "github": "https://github.com/241793/B-Bot",
+  "docsUrl": "https://github.com/241793/B-Bot/blob/main/README.md",
+  "blog": "https://bchome.dpdns.org",
+  "dockerImage": "241793/b-bot:latest",
+  "androidApp": "https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk",
+  "dockerRun": "docker run -d \\\n  --name bbot \\\n  --restart unless-stopped \\\n  -p 5000:5000 \\\n  -p 8888:8888 \\\n  -v /var/run/docker.sock:/var/run/docker.sock \\\n  -v /your/data/path:/app/mount \\\n  241793/b-bot:latest"
+}
