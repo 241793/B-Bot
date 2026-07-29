@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="B-BOT 将多渠道接入、独立 Agent、插件扩展、AI 工作流与内置青龙收进一套 Web 管理台。">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta name="theme-color" content="#f5f5f7">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:site_name" content="B-BOT">
+  <meta property="og:title" content="B-BOT — AI 驱动的智能机器人框架">
+  <meta property="og:description" content="多渠道接入、独立 Agent、插件扩展、AI 工作流与内置青龙，在一套 Web 管理台中协同运行。">
+  <meta property="og:image" content="./assets/ai-brain.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="B-BOT — AI 驱动的智能机器人框架">
+  <meta name="twitter:description" content="把消息、智能与执行，收进一套面板。">
+  <meta name="twitter:image" content="./assets/ai-brain.png">
+  <title>B-BOT — AI 驱动的智能机器人框架</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "B-BOT",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux (Docker)",
+    "softwareVersion": "1.1.2",
+    "description": "AI 驱动的智能机器人框架，支持多渠道接入、独立 Agent、插件扩展、AI 工作流与内置青龙。",
+    "downloadUrl": "https://github.com/241793/B-Bot",
+    "codeRepository": "https://github.com/241793/B-Bot"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="nav" id="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#hero" aria-label="B-BOT 首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="6" width="18" height="12" rx="4" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="9" cy="12" r="1.4" fill="currentColor"/>
+            <circle cx="15" cy="12" r="1.4" fill="currentColor"/>
+            <path d="M8 16.5c1.2 1 2.6 1.5 4 1.5s2.8-.5 4-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-name">B-BOT</span>
+        <span class="brand-ver" data-bind="version">1.1.2</span>
+      </a>
+
+      <nav class="nav-links" id="nav-links" aria-label="主导航">
+        <a href="#capabilities">接入</a>
+        <a href="#agents">AI / Agent</a>
+        <a href="#ops">运维</a>
+        <a href="#scenes">场景</a>
+        <a href="#start">开始</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a class="nav-ghost" data-bind="github" href="https://github.com/241793/B-Bot" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn-sm" href="#start">立即部署</a>
+        <button class="menu-btn js-only" id="menu-btn" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="nav-links" hidden>
+          <span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <noscript>
+    <div class="noscript-note">
+      <span>JavaScript 已关闭，页面内容与部署命令仍可正常查看。</span>
+      <nav aria-label="无脚本章节导航">
+        <a href="#capabilities">接入</a>
+        <a href="#agents">Agent</a>
+        <a href="#ai">AI</a>
+        <a href="#ops">运维</a>
+        <a href="#scenes">场景</a>
+        <a href="#start">开始</a>
+      </nav>
+    </div>
+  </noscript>
+
+  <main id="main">
+    <section class="hero" id="hero">
+      <div class="shell hero-shell">
+        <div class="hero-copy">
+          <p class="eyebrow reveal">
+            <span data-bind="name">B-BOT</span>
+            <span class="eyebrow-dot" aria-hidden="true"></span>
+            <span data-bind="version-label">1.1.2</span>
+          </p>
+          <h1 class="display reveal" style="--d:1">把复杂机器人运维，<br>收成一套面板。</h1>
+          <p class="lede reveal" style="--d:2" data-bind="description">
+            多渠道接入、独立 Agent、插件扩展、AI 工作流与内置青龙，在一套 Web 管理台中协同运行。
+          </p>
+          <div class="hero-cta reveal" style="--d:3">
+            <a class="btn" href="#start">立即部署</a>
+            <a class="btn btn-secondary" data-bind="github" href="https://github.com/241793/B-Bot" target="_blank" rel="noopener">查看 GitHub</a>
+          </div>
+        </div>
+
+        <figure class="product-stage reveal" style="--d:4">
+          <div class="stage-bar" aria-hidden="true">
+            <span class="stage-dots"><i></i><i></i><i></i></span>
+            <span class="stage-title">B-BOT / AI 大脑</span>
+            <span class="stage-live"><i></i> Ready</span>
+          </div>
+          <a href="./assets/ai-brain.png" target="_blank" aria-label="打开 B-BOT AI 大脑完整截图">
+            <img src="./assets/ai-brain.png" alt="B-BOT AI 大脑管理界面，包含模型配置、知识库、工作流和子智能体" width="1896" height="863" loading="eager" fetchpriority="high" decoding="async">
+          </a>
+          <figcaption>模型、技能、知识库与工作流，在同一处协作。</figcaption>
+        </figure>
+
+        <ul class="release-highlights reveal" style="--d:5" aria-label="B-BOT 1.1.2 重点能力">
+          <li><span class="trust-k">Custom Webhook</span><span class="trust-v">外部系统接入</span></li>
+          <li><span class="trust-k">按适配器绑定</span><span class="trust-v">独立 Agent</span></li>
+          <li><span class="trust-k">.bbotkb</span><span class="trust-v">可迁移知识</span></li>
+          <li><span class="trust-k">JS / Python QLEnv</span><span class="trust-v">脚本内 env</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section-soft" id="capabilities">
+      <div class="shell">
+        <header class="section-head reveal">
+          <p class="section-kicker">One clear path</p>
+          <h2 class="section-title">消息进来。<br>交给正确的人和能力。</h2>
+          <p class="section-desc">从常用聊天渠道到业务系统 Webhook，B-BOT 将接入、判断和执行放进一条可观察、可扩展的链路。</p>
+        </header>
+
+        <ol class="workflow" aria-label="B-BOT 消息处理流程">
+          <li class="workflow-step reveal" style="--d:1">
+            <span class="workflow-index">01</span>
+            <div class="workflow-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <circle cx="6" cy="12" r="2.2" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="18" cy="6" r="2.2" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="18" cy="18" r="2.2" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8 11.2 16 7.2M8 12.8 16 16.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <h3>接入渠道</h3>
+            <p>QQ（llonebot/ws）、官方 QQ Bot、wxclaw、Telegram Bot、企微、钉钉、飞书与 Custom Webhook。QQ Bot、企微、TG、wxclaw 等可配置多账号。</p>
+          </li>
+          <li class="workflow-step reveal" style="--d:2">
+            <span class="workflow-index">02</span>
+            <div class="workflow-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="7" cy="7" r="2" fill="currentColor"/>
+                <circle cx="15" cy="12" r="2" fill="currentColor"/>
+                <circle cx="12" cy="17" r="2" fill="currentColor"/>
+              </svg>
+            </div>
+            <h3>规则路由</h3>
+            <p>关键词、正则与全匹配，按渠道、群聊或私聊限定范围，把消息交给插件、Agent 或工作流。</p>
+          </li>
+          <li class="workflow-step reveal" style="--d:3">
+            <span class="workflow-index">03</span>
+            <div class="workflow-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <path d="M8 7h8M8 12h8M8 17h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <rect x="4" y="4" width="16" height="16" rx="3.5" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+            </div>
+            <h3>交给能力</h3>
+            <p>Python / JS 插件可使用 Bucket、权限、主动推送、多轮输入与 Webhook，并兼容 ATM 写法。调试页支持 AI 编写与行级 diff，保存后尝试热重载。</p>
+          </li>
+        </ol>
+
+        <div class="integration-rail reveal" style="--d:2" aria-label="Custom Webhook 集成链">
+          <div class="integration-flow">
+            <span>外部系统</span><i aria-hidden="true">→</i><span>入站 Webhook</span><i aria-hidden="true">→</i><strong>B-BOT</strong><i aria-hidden="true">→</i><span>出站回调</span>
+          </div>
+          <ul>
+            <li>入站 Token</li>
+            <li>出站 HMAC-SHA256 签名</li>
+            <li>Custom 专用知识桶</li>
+          </ul>
+          <p>B-BOT 为出站回调生成签名，业务系统据此验签。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="agents">
+      <div class="shell">
+        <div class="agent-layout">
+          <div class="agent-intro reveal">
+            <p class="section-kicker">Agents</p>
+            <h2 class="section-title">每个渠道，<br>都可以有自己的 Agent。</h2>
+            <p class="section-desc">一个适配器可绑定一个子智能体。绑定后使用该 Agent 的独立配置；未绑定时回退到主智能体。</p>
+
+            <div class="agent-route" aria-label="适配器与智能体路由关系">
+              <div class="agent-source">适配器</div>
+              <div class="route-lines" aria-hidden="true"><i></i><i></i></div>
+              <div class="route-targets">
+                <div><small>已绑定</small><strong>子智能体</strong></div>
+                <div><small>未绑定</small><strong>主智能体</strong></div>
+              </div>
+            </div>
+            <p class="agent-limit">一个适配器只绑定一个子智能体。</p>
+          </div>
+
+          <dl class="agent-scope reveal" style="--d:2">
+            <div><dt>推理</dt><dd>独立模型、系统提示词与唤醒词</dd></div>
+            <div><dt>能力</dt><dd>独立技能、MCP 与工作流配置</dd></div>
+            <div><dt>知识</dt><dd>独立知识库与知识桶</dd></div>
+            <div><dt>上下文</dt><dd>独立会话与记忆，不与其他角色混用</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-dark" id="ai">
+      <div class="shell">
+        <header class="section-head section-head-center reveal">
+          <p class="section-kicker">AI Brain</p>
+          <h2 class="section-title">不是接入一个模型。<br>是编排整套智能能力。</h2>
+          <p class="section-desc">让触发、模型、工具与知识协同运行，再将结果回复到当前会话，或推送到已支持推送的渠道。</p>
+        </header>
+
+        <ol class="ai-flow reveal" style="--d:1" aria-label="AI 大脑执行链">
+          <li><span class="ai-dot"></span><small>01</small><strong>触发</strong><p>对话 · AI 定时 · 工作流</p></li>
+          <li><span class="ai-dot"></span><small>02</small><strong>模型路由</strong><p>启用 · 降级 · 故障转移</p></li>
+          <li><span class="ai-dot"></span><small>03</small><strong>能力调用</strong><p>技能 · MCP · 知识库</p></li>
+          <li><span class="ai-dot"></span><small>04</small><strong>交付</strong><p>回复 · 支持的渠道推送 · Bot-Chat</p></li>
+        </ol>
+
+        <div class="ai-notes">
+          <article class="ai-note reveal" style="--d:2">
+            <span>Extensions</span>
+            <h3>能力来源</h3>
+            <p>技能可由 URL、GitHub 或技能市场导入，并与 MCP 工具组合。</p>
+          </article>
+          <article class="ai-note reveal" style="--d:3">
+            <span>Automation</span>
+            <h3>工作流与定时</h3>
+            <p>用 LLM、MCP、知识与条件节点编排流程；AI 定时执行 Prompt 或工作流。</p>
+          </article>
+          <article class="ai-note reveal" style="--d:4">
+            <span>Knowledge</span>
+            <h3>知识与客服</h3>
+            <p>文本、文件、URL 与 `.bbotkb` 知识包；需要时由 Bot-Chat 人工接管。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="ops">
+      <div class="shell">
+        <header class="section-head reveal">
+          <p class="section-kicker">Operations</p>
+          <h2 class="section-title">脚本运维与数字履约。<br>也在同一处。</h2>
+          <p class="section-desc">脚本、任务、环境变量与商品订单，都有真实管理界面，不必在多个系统间来回切换。</p>
+        </header>
+
+        <article class="ops-primary reveal">
+          <a class="media-frame" href="./assets/qinglong.png" target="_blank" aria-label="打开 B-BOT 内置青龙完整截图">
+            <img src="./assets/qinglong.png" alt="B-BOT 内置青龙管理界面，包含定时任务、脚本和环境变量" width="1910" height="873" loading="lazy" decoding="async">
+          </a>
+          <div class="ops-caption">
+            <div>
+              <p class="section-kicker">Built-in QingLong</p>
+              <h3>内置青龙</h3>
+            </div>
+            <p>环境变量、定时任务、脚本、依赖与日志集中管理。JS / Python 脚本可通过 QLEnv 按名称查询和设置 env，更新时无需手填 id。</p>
+          </div>
+          <div class="chips" aria-label="内置青龙能力">
+            <span class="chip">JS / Python QLEnv</span>
+            <span class="chip">按名称读写 env</span>
+            <span class="chip">脚本与任务</span>
+            <span class="chip">依赖与日志</span>
+          </div>
+        </article>
+
+        <article class="ops-secondary reveal" style="--d:1">
+          <div class="ops-copy">
+            <p class="section-kicker">Commerce</p>
+            <h3>支付与商城</h3>
+            <p>商品上下架、订单管理、库存卡密与自动发货连在一起，机器人侧即可完成数字商品履约。</p>
+            <div class="chips" aria-label="商城能力">
+              <span class="chip">商品与订单</span>
+              <span class="chip">库存卡密</span>
+              <span class="chip">自动发货</span>
+            </div>
+          </div>
+          <a class="media-frame" href="./assets/shop.png" target="_blank" aria-label="打开 B-BOT 支付与商城完整截图">
+            <img src="./assets/shop.png" alt="B-BOT 内置支付与卡密商城管理界面" width="1894" height="864" loading="lazy" decoding="async">
+          </a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-soft" id="scenes">
+      <div class="shell">
+        <header class="section-head reveal">
+          <p class="section-kicker">Use cases</p>
+          <h2 class="section-title">从一条消息，<br>到一段完整业务。</h2>
+          <p class="section-desc">同一套接入与执行能力，可以服务客服、业务系统、自动化运维和数字商品履约。</p>
+        </header>
+
+        <div class="scene-switcher reveal" data-scene-switcher>
+          <div class="scene-tabs" role="tablist" aria-label="使用场景" hidden>
+            <button type="button" role="tab" id="scene-tab-support" aria-controls="scene-support" aria-selected="true" tabindex="0">跨渠道客服</button>
+            <button type="button" role="tab" id="scene-tab-system" aria-controls="scene-system" aria-selected="false" tabindex="-1">企业系统接入</button>
+            <button type="button" role="tab" id="scene-tab-agents" aria-controls="scene-agents" aria-selected="false" tabindex="-1">多角色 Agent</button>
+            <button type="button" role="tab" id="scene-tab-briefing" aria-controls="scene-briefing" aria-selected="false" tabindex="-1">定时简报</button>
+            <button type="button" role="tab" id="scene-tab-ops" aria-controls="scene-ops" aria-selected="false" tabindex="-1">脚本运维</button>
+            <button type="button" role="tab" id="scene-tab-commerce" aria-controls="scene-commerce" aria-selected="false" tabindex="-1">数字商品履约</button>
+          </div>
+
+          <div class="scene-panels">
+            <article class="scene-panel" id="scene-support" role="tabpanel" aria-labelledby="scene-tab-support">
+              <span>01 / Support</span>
+              <h3>跨渠道客服</h3>
+              <p>QQ、Telegram、企微、钉钉等渠道进入统一处理链，按适配器分配 Agent；需要时由 Bot-Chat 人工接管。</p>
+              <ul><li>统一知识</li><li>独立角色</li><li>人工接管</li></ul>
+            </article>
+            <article class="scene-panel" id="scene-system" role="tabpanel" aria-labelledby="scene-tab-system">
+              <span>02 / Integration</span>
+              <h3>企业系统接入</h3>
+              <p>CRM 或工单系统通过 Custom Webhook 入站，处理结果经签名回调返回，并使用专用知识桶隔离资料。</p>
+              <ul><li>Webhook 入站</li><li>签名回调</li><li>知识隔离</li></ul>
+            </article>
+            <article class="scene-panel" id="scene-agents" role="tabpanel" aria-labelledby="scene-tab-agents">
+              <span>03 / Roles</span>
+              <h3>多角色 Agent</h3>
+              <p>客服、运营与运维分别使用独立模型、提示词、技能、知识和上下文，未绑定渠道仍由主智能体承接。</p>
+              <ul><li>适配器绑定</li><li>能力隔离</li><li>主智能体回退</li></ul>
+            </article>
+            <article class="scene-panel" id="scene-briefing" role="tabpanel" aria-labelledby="scene-tab-briefing">
+              <span>04 / Schedule</span>
+              <h3>定时简报</h3>
+              <p>AI 定时执行 Prompt 或工作流，汇总知识与工具结果，再发送到已支持推送的渠道。</p>
+              <ul><li>Cron 触发</li><li>工作流编排</li><li>定向推送</li></ul>
+            </article>
+            <article class="scene-panel" id="scene-ops" role="tabpanel" aria-labelledby="scene-tab-ops">
+              <span>05 / Automation</span>
+              <h3>脚本运维</h3>
+              <p>用内置青龙管理脚本、任务、依赖和日志，JS / Python 脚本通过 QLEnv 直接维护环境变量。</p>
+              <ul><li>任务调度</li><li>依赖日志</li><li>QLEnv</li></ul>
+            </article>
+            <article class="scene-panel" id="scene-commerce" role="tabpanel" aria-labelledby="scene-tab-commerce">
+              <span>06 / Commerce</span>
+              <h3>数字商品履约</h3>
+              <p>从商品选择到订单、库存卡密和自动发货，机器人侧完成购买流程，后台集中管理履约状态。</p>
+              <ul><li>商品订单</li><li>库存卡密</li><li>自动发货</li></ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="start">
+      <div class="shell shell-narrow">
+        <header class="section-head section-head-center reveal">
+          <p class="section-kicker">Get started</p>
+          <h2 class="section-title">现在开始。</h2>
+          <p class="section-desc">Docker 为首选。启动后打开管理台，挂载数据目录即可持久化。</p>
+        </header>
+
+        <dl class="deploy-facts reveal" aria-label="部署信息">
+          <div><dt>镜像</dt><dd data-bind="dockerImage">241793/b-bot:latest</dd></div>
+          <div><dt>Web 面板</dt><dd>5000</dd></div>
+          <div><dt>数据目录</dt><dd>/app/mount</dd></div>
+        </dl>
+
+        <div class="code-card reveal" style="--d:1">
+          <div class="code-card-bar">
+            <span class="code-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="code-label">Terminal</span>
+            <button class="copy-btn js-only" id="copy-btn" type="button" hidden>复制</button>
+          </div>
+          <pre id="docker-cmd" class="code-body" tabindex="0"><code>docker run -d \
+  --name bbot \
+  --restart unless-stopped \
+  -p 5000:5000 \
+  -p 8888:8888 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /your/data/path:/app/mount \
+  241793/b-bot:latest</code></pre>
+        </div>
+        <p class="visually-hidden" id="copy-status" role="status" aria-live="polite"></p>
+
+        <aside class="socket-note reveal" style="--d:2" role="note">
+          <strong>容器管理权限</strong>
+          <p data-bind="dockerSocketNotice">命令中的 docker.sock 挂载用于容器管理，会授予 B-BOT 容器访问宿主 Docker 守护进程的能力。仅在受控主机上部署。</p>
+        </aside>
+
+        <p class="start-hint reveal" style="--d:2">部署完成后，浏览器打开 <code>http://服务器IP:5000</code>。</p>
+
+        <nav class="resource-links reveal" style="--d:3" aria-label="相关资源">
+          <a data-bind="androidApp" href="https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk" target="_blank" rel="noopener"><span>Android</span>下载配套 APP <b aria-hidden="true">↗</b></a>
+          <a data-bind="docsUrl" href="https://github.com/241793/B-Bot/blob/main/README.md" target="_blank" rel="noopener"><span>Docs</span>完整 README <b aria-hidden="true">↗</b></a>
+          <a data-bind="github" href="https://github.com/241793/B-Bot" target="_blank" rel="noopener"><span>Source</span>GitHub 仓库 <b aria-hidden="true">↗</b></a>
+        </nav>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-inner">
+      <p>© <span id="year">2026</span> B-BOT · 仅供学习与参考</p>
+      <div class="footer-links">
+        <a data-bind="github" href="https://github.com/241793/B-Bot" target="_blank" rel="noopener">GitHub</a>
+        <a data-bind="blog" href="https://bchome.dpdns.org" target="_blank" rel="noopener">Blog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./script.js" defer></script>
+</body>
+</html>
