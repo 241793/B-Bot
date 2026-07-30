@@ -4,9 +4,9 @@
   const FALLBACK = {
     name: "B-BOT",
     version: "1.1.2",
-    title: "AI 驱动的智能机器人框架",
+    title: "插件、适配器、青龙与 AI 机器人框架",
     description:
-      "多渠道接入、独立 Agent、插件扩展、AI 工作流与内置青龙，在一套 Web 管理台中协同运行。",
+      "B-BOT 提供插件自定义、多适配器接入、内置青龙脚本容器与 AI 智能大脑，在一套 Web 管理台中完成路由、自动化与智能执行。",
     dockerSocketNotice:
       "命令中的 docker.sock 挂载用于容器管理，会授予 B-BOT 容器访问宿主 Docker 守护进程的能力。仅在受控主机上部署。",
     github: "https://github.com/241793/B-Bot",
@@ -203,62 +203,6 @@
     });
   }
 
-  function setupScenes() {
-    const switcher = $("[data-scene-switcher]");
-    if (!switcher) return;
-
-    const tabs = $$("[role='tab']", switcher);
-    const panels = $$("[role='tabpanel']", switcher);
-    if (!tabs.length || tabs.length !== panels.length) return;
-
-    const tabList = $("[role='tablist']", switcher);
-    if (tabList) tabList.hidden = false;
-
-    const activate = (index, moveFocus = false) => {
-      tabs.forEach((tab, tabIndex) => {
-        const active = tabIndex === index;
-        tab.setAttribute("aria-selected", String(active));
-        tab.tabIndex = active ? 0 : -1;
-      });
-
-      panels.forEach((panel, panelIndex) => {
-        const active = panelIndex === index;
-        panel.hidden = !active;
-        panel.classList.remove("scene-enter");
-        if (active && !reducedMotionQuery.matches) {
-          void panel.offsetWidth;
-          panel.classList.add("scene-enter");
-        }
-      });
-
-      if (moveFocus) {
-        tabs[index].focus();
-        tabs[index].scrollIntoView({
-          behavior: reducedMotionQuery.matches ? "auto" : "smooth",
-          block: "nearest",
-          inline: "nearest",
-        });
-      }
-    };
-
-    const hashIndex = panels.findIndex((panel) => `#${panel.id}` === window.location.hash);
-    activate(hashIndex >= 0 ? hashIndex : 0);
-
-    tabs.forEach((tab, index) => {
-      tab.addEventListener("click", () => activate(index));
-      tab.addEventListener("keydown", (event) => {
-        let next = index;
-        if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (index + 1) % tabs.length;
-        else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (index - 1 + tabs.length) % tabs.length;
-        else if (event.key === "Home") next = 0;
-        else if (event.key === "End") next = tabs.length - 1;
-        else return;
-        event.preventDefault();
-        activate(next, true);
-      });
-    });
-  }
-
   function setupYear() {
     const year = $("#year");
     if (year) year.textContent = String(new Date().getFullYear());
@@ -270,7 +214,6 @@
     setupNav();
     setupReveal();
     setupCopy();
-    setupScenes();
     loadConfig();
   }
 
