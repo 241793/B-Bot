@@ -1,8 +1,8 @@
 {
   "name": "B-BOT",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "title": "插件、适配器、青龙与 AI 机器人框架",
-  "description": "B-BOT 提供插件自定义、多适配器接入、内置青龙脚本容器与 AI 智能大脑，在一套 Web 管理台中完成路由、自动化与智能执行。",
+  "description": "B-BOT 提供插件自定义(js/py)、多适配器接入(QQ、wxclaw、企业微信等)、内置青龙脚本容器(定时运行脚本)与 AI 智能大脑，在一套 Web 管理台中完成路由、自动化与智能执行。",
   "dockerSocketNotice": "命令中的 docker.sock 挂载用于容器管理，会授予 B-BOT 容器访问宿主 Docker 守护进程的能力。仅在受控主机上部署。",
   "github": "https://github.com/241793/B-Bot",
   "docsUrl": "https://github.com/241793/B-Bot/blob/main/README.md",
