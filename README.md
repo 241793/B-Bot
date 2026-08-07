@@ -2,7 +2,7 @@
 
 > **一个 AI 驱动的跨平台机器人框架** —— 把大模型装进 QQ、Telegram、企业微信、钉钉、飞书……让机器人真正「会思考、能执行、可扩展」。
 
-[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/241793/B-Bot/releases)
+[![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)](https://github.com/241793/B-Bot/releases)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](./LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](./docs/docker)
@@ -221,11 +221,11 @@ Cron: "0 9 * * *"     # 每天早上9点
 
 #### 插件开发模式
 
-B-Bot 支持 **两种插件风格**，按需选择：
+B-Bot 支持 **三种插件风格**，按需选择：
 
 | 模式 | 特点 | 适合场景 |
 |------|------|----------|
-| **B-Bot 原生** | 异步优先、Middleware API 完整 | 新项目、高性能需求 |
+| **B-Bot 两种原生** | 异步优先、Middleware API 完整 | 新项目、高性能需求 |
 | **奥特曼(ATM)兼容** | 同步风格、`Sender` 对象、兼容现有 ATM 插件 | 迁移旧插件、快速上手 |
 
 #### 最小可用插件（B-Bot 原生）
@@ -542,6 +542,6 @@ B-Bot/
 
 **⭐ 如果 B-Bot 对你有帮助，请给一个 Star 支持一下！**
 
-[GitHub](https://github.com/241793/B-Bot) · [在线文档](https://241793.github.io/B-Bot/)
+[GitHub](https://github.com/241793/B-Bot) · [官网](https://241793.github.io/B-Bot/)
 
 </div>
