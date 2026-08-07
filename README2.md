@@ -7,9 +7,7 @@
 - 当前版本：**1.1.2**
 - 配套安卓 APP：`1.0.4`  
   https://github.com/241793/B-Bot/releases/download/1.0.9/b-bot1.0.4.apk
-- Win 版已停更（0.0.9）
 
-<img width="1855" height="827" alt="image" src="https://github.com/user-attachments/assets/6730a9bf-acb3-4852-8aec-e874af20e620" />
 
 ---
 
